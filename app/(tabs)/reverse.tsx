@@ -1,0 +1,121 @@
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { BarbellSleeve } from '../../src/components/BarbellSleeve';
+import { PlateChip, PlateChipGrid } from '../../src/components/Chips';
+import { Screen } from '../../src/components/Screen';
+import { Segmented } from '../../src/components/Segmented';
+import {
+  addPair,
+  barWeight,
+  canAddPair,
+  collarWeight,
+  englishBreakdown,
+  formatDual,
+  plateColor,
+  platesForUnit,
+  removePairAt,
+  totalFromSleeve,
+  type PlateStackItem,
+} from '../../src/engine';
+import { tick } from '../../src/haptics/feedback';
+import { useAppStore, useInventory } from '../../src/store/useAppStore';
+import { theme } from '../../src/theme';
+
+export default function ReverseScreen() {
+  const unit = useAppStore((state) => state.unit);
+  const rounding = useAppStore((state) => state.rounding);
+  const barId = useAppStore((state) => state.barId);
+  const customBar = useAppStore((state) => state.customBar);
+  const collarId = useAppStore((state) => state.collarId);
+  const plateTheme = useAppStore((state) => state.plateTheme);
+  const setUnit = useAppStore((state) => state.setUnit);
+  const inventory = useInventory();
+  const [plates, setPlates] = useState<PlateStackItem[]>([]);
+
+  const bar = barWeight(barId, unit, customBar);
+  const collars = collarWeight(collarId, unit);
+  const loaded = totalFromSleeve(bar, collars, plates);
+  const catalog = platesForUnit(unit);
+
+  return (
+    <Screen
+      title="What's On The Bar"
+      subtitle="Tap a plate to add a pair. Tap the sleeve to strip it."
+      right={
+        <View style={{ width: 132 }}>
+          <Segmented
+            value={unit}
+            options={[
+              { value: 'lb', label: 'LB' },
+              { value: 'kg', label: 'KG' },
+            ]}
+            onChange={(next) => {
+              setUnit(next);
+              setPlates([]);
+            }}
+          />
+        </View>
+      }
+    >
+      <Text style={styles.total}>{formatDual(loaded, unit, rounding)}</Text>
+      <BarbellSleeve
+        plates={plates}
+        plateTheme={plateTheme}
+        emptyLabel="Tap plates below"
+        onPlatePress={(index) => setPlates((current) => removePairAt(current, index))}
+      />
+      <Text style={styles.math}>{englishBreakdown(bar, collars, plates, loaded, unit)}</Text>
+      <Pressable
+        onPress={() => {
+          void tick('warn');
+          setPlates([]);
+        }}
+        style={styles.clear}
+      >
+        <Text style={styles.clearText}>Clear Bar</Text>
+      </Pressable>
+      <PlateChipGrid>
+        {catalog.map((spec) => {
+          const color = plateColor(spec, plateTheme);
+          const disabled = !canAddPair(inventory, plates, spec.id) || (inventory[spec.id] ?? 0) <= 0;
+          return (
+            <PlateChip
+              key={spec.id}
+              label={String(spec.weight)}
+              color={color.fill}
+              textColor={color.text}
+              disabled={disabled}
+              onPress={() => setPlates((current) => addPair(current, spec.id))}
+            />
+          );
+        })}
+      </PlateChipGrid>
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  total: {
+    color: theme.accent,
+    fontSize: 28,
+    fontWeight: '800',
+  },
+  math: {
+    color: theme.muted,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  clear: {
+    alignSelf: 'flex-start',
+    backgroundColor: theme.surface,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  clearText: {
+    color: theme.danger,
+    fontWeight: '700',
+  },
+});
