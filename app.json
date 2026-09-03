@@ -38,11 +38,23 @@
       "expo-router",
       "expo-system-ui",
       "expo-font",
-      "expo-av",
+      [
+        "expo-av",
+        {
+          "microphonePermission": false
+        }
+      ],
       "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ee0b04fd-1f4d-4fce-8de3-abe49c8e43c2"
+      }
+    },
+    "owner": "mikeybobby718"
   }
 }

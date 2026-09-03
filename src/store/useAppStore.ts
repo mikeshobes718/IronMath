@@ -41,7 +41,7 @@ export interface AppState {
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
-      hydrated: false,
+      hydrated: true,
       unit: 'lb',
       barId: 'oly',
       customBar: 45,

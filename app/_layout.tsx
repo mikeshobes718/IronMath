@@ -4,10 +4,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import { useEffect } from 'react';
-import { View } from 'react-native';
 import 'react-native-reanimated';
 import { theme } from '../src/theme';
-import { useAppStore } from '../src/store/useAppStore';
 
 SplashScreen.preventAutoHideAsync();
 void SystemUI.setBackgroundColorAsync(theme.bg);
@@ -31,33 +29,9 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
-  const hydrated = useAppStore((state) => state.hydrated);
-
   useEffect(() => {
-    const unsub = useAppStore.persist.onFinishHydration(() => {
-      useAppStore.setState({ hydrated: true });
-    });
-    if (useAppStore.persist.hasHydrated()) {
-      useAppStore.setState({ hydrated: true });
-    }
-    const timeout = setTimeout(() => {
-      useAppStore.setState({ hydrated: true });
-    }, 600);
-    return () => {
-      unsub();
-      clearTimeout(timeout);
-    };
+    void SplashScreen.hideAsync();
   }, []);
-
-  useEffect(() => {
-    if (hydrated) {
-      void SplashScreen.hideAsync();
-    }
-  }, [hydrated]);
-
-  if (!hydrated) {
-    return <View style={{ flex: 1, backgroundColor: theme.bg }} />;
-  }
 
   return (
     <ThemeProvider value={navTheme}>
