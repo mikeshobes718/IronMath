@@ -18,6 +18,9 @@
       "bundleIdentifier": "app.ironmath.mobile",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
+      },
+      "runtimeVersion": {
+        "policy": "appVersion"
       }
     },
     "android": {
@@ -27,7 +30,10 @@
       },
       "package": "app.ironmath.mobile",
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -55,6 +61,9 @@
         "projectId": "ee0b04fd-1f4d-4fce-8de3-abe49c8e43c2"
       }
     },
-    "owner": "mikeybobby718"
+    "owner": "mikeybobby718",
+    "updates": {
+      "url": "https://u.expo.dev/ee0b04fd-1f4d-4fce-8de3-abe49c8e43c2"
+    }
   }
 }
