@@ -36,7 +36,10 @@
     },
     "plugins": [
       "expo-router",
-      "expo-system-ui"
+      "expo-system-ui",
+      "expo-font",
+      "expo-av",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
