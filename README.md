@@ -23,3 +23,7 @@ npm test
 ```
 
 Math lives in `src/engine` and is covered by Vitest. Preferences persist locally with Zustand + AsyncStorage.
+
+## Privacy
+
+IronMath is offline. It does not track you. See [PRIVACY.md](PRIVACY.md).
