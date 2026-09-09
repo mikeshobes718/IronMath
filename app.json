@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "ironmath",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/images/splash-icon.png",
@@ -15,9 +15,27 @@
     },
     "ios": {
       "supportsTablet": true,
+      "deploymentTarget": "17.2",
       "bundleIdentifier": "app.ironmath.mobile",
+      "buildNumber": "16",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSSupportsLiveActivities": true,
+        "NSSupportsLiveActivitiesFrequentUpdates": true,
+        "NSBluetoothAlwaysUsageDescription": "IronMath connects to Meta Ray-Ban Display glasses so Load and Convert stay on the display while your phone is in your pocket.",
+        "NSLocalNetworkUsageDescription": "IronMath can use Wi-Fi to reach Meta Display glasses when Bluetooth is not enough.",
+        "NSCameraUsageDescription": "Meta AI may ask for glasses permission before IronMath can use the display. IronMath does not record video.",
+        "UIApplicationSceneManifest": {
+          "UIApplicationSupportsMultipleScenes": false,
+          "UISceneConfigurations": {
+            "UIWindowSceneSessionRoleApplication": [
+              {
+                "UISceneConfigurationName": "Default Configuration",
+                "UISceneDelegateClassName": "$(PRODUCT_MODULE_NAME).SceneDelegate"
+              }
+            ]
+          }
+        }
       },
       "runtimeVersion": {
         "policy": "appVersion"
@@ -42,6 +60,7 @@
     },
     "plugins": [
       "expo-router",
+      "./plugins/withSceneLifecycle.js",
       "expo-system-ui",
       "expo-font",
       [
@@ -50,7 +69,10 @@
           "microphonePermission": false
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-live-activity",
+      "./plugins/withMetaWearables.js",
+      "./plugins/withPodMinIos.js"
     ],
     "experiments": {
       "typedRoutes": true
@@ -63,6 +85,7 @@
     },
     "owner": "mikeybobby718",
     "updates": {
+      "enabled": false,
       "url": "https://u.expo.dev/ee0b04fd-1f4d-4fce-8de3-abe49c8e43c2"
     }
   }

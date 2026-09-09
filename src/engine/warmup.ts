@@ -1,3 +1,4 @@
+import { eachSideCopy } from './breakdown';
 import type { CollarId } from './catalog';
 import { barWeight, collarWeight } from './catalog';
 import { solveLoad, type InventoryCounts, type LoadSolution, type PlateStackItem } from './solve';
@@ -9,6 +10,8 @@ export interface SwapHint {
   keep: PlateStackItem[];
   add: PlateStackItem[];
   remove: PlateStackItem[];
+  thisSet: string;
+  fromLast: string | null;
   copy: string;
 }
 
@@ -77,7 +80,47 @@ export function minSwap(from: PlateStackItem[], to: PlateStackItem[]): SwapHint 
     }
   }
 
-  return { keep, add, remove, copy: swapCopy(keep, add, remove) };
+  const thisSet = thisSetCopy(to);
+  const fromLast = fromLastCopy(from, add, remove);
+  return { keep, add, remove, thisSet, fromLast, copy: thisSet };
+}
+
+export function thisSetCopy(plates: PlateStackItem[]): string {
+  if (plates.length === 0) {
+    return 'Bar only';
+  }
+  if (plates.length === 1) {
+    const item = plates[0];
+    const weight = trim(item.weight);
+    if (item.count === 1) {
+      return `One ${weight} per side`;
+    }
+    if (item.count === 2) {
+      return `Two ${weight}s per side`;
+    }
+  }
+  return eachSideCopy(plates);
+}
+
+function fromLastCopy(
+  from: PlateStackItem[],
+  add: PlateStackItem[],
+  remove: PlateStackItem[]
+): string | null {
+  if (from.length === 0) {
+    return null;
+  }
+  if (add.length === 0 && remove.length === 0) {
+    return null;
+  }
+  const bits: string[] = [];
+  if (remove.length) {
+    bits.push(`take off ${plainList(remove, 'the')}`);
+  }
+  if (add.length) {
+    bits.push(`put on ${plainList(add, 'a')}`);
+  }
+  return `From last set: ${bits.join(', ')}.`;
 }
 
 function toMap(plates: PlateStackItem[]): Map<string, number> {
@@ -88,28 +131,20 @@ function toMap(plates: PlateStackItem[]): Map<string, number> {
   return map;
 }
 
-function swapCopy(keep: PlateStackItem[], add: PlateStackItem[], remove: PlateStackItem[]): string {
-  if (keep.length === 0 && add.length === 0 && remove.length === 0) {
-    return 'Bar only. No plates.';
-  }
-  const bits: string[] = [];
-  if (keep.length) {
-    bits.push(`Keep ${list(keep)}`);
-  }
-  if (remove.length) {
-    bits.push(`strip ${list(remove)}`);
-  }
-  if (add.length) {
-    bits.push(`add ${list(add)}`);
-  }
-  return `${bits.join(', ')}.`;
-}
-
-function list(items: PlateStackItem[]): string {
-  return items
+function plainList(items: PlateStackItem[], singularArticle: 'a' | 'the'): string {
+  const parts = items
     .sort((a, b) => b.weight - a.weight)
-    .map((item) => (item.count > 1 ? `${item.count}x${trim(item.weight)}` : `${trim(item.weight)}`))
-    .join(' + ');
+    .map((item) => {
+      const weight = trim(item.weight);
+      if (item.count > 1) {
+        return `the ${weight}s`;
+      }
+      return `${singularArticle} ${weight}`;
+    });
+  if (parts.length <= 2) {
+    return parts.join(' and ');
+  }
+  return `${parts.slice(0, -1).join(', ')}, and ${parts[parts.length - 1]}`;
 }
 
 function trim(value: number): string {

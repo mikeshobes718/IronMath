@@ -27,6 +27,18 @@ export function convertWeight(value: number, from: Unit, to: Unit): number {
   return from === 'lb' ? lbToKg(value) : kgToLb(value);
 }
 
+export function roundGymLoad(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    return 0;
+  }
+  return Math.round(value / 2.5) * 2.5;
+}
+
+export function rawForUnitChange(value: number, from: Unit, to: Unit): string {
+  const rounded = roundGymLoad(convertWeight(value, from, to));
+  return String(Number(rounded.toFixed(2)));
+}
+
 export function roundTo(value: number, places: Rounding): number {
   const factor = 10 ** places;
   return Math.round(value * factor) / factor;

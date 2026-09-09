@@ -25,6 +25,20 @@ function trim(value: number): string {
   return String(Number(value.toFixed(2)));
 }
 
+export function eachSideCopy(plates: PlateStackItem[]): string {
+  const weights: string[] = [];
+  for (const item of plates) {
+    const text = trim(item.weight);
+    for (let i = 0; i < item.count; i += 1) {
+      weights.push(text);
+    }
+  }
+  if (weights.length === 0) {
+    return 'No plates on the bar yet.';
+  }
+  return `Each side: ${weights.join(' + ')}`;
+}
+
 export function missCopy(delta: number, unit: Unit): string | null {
   if (Math.abs(delta) < 0.001) {
     return null;

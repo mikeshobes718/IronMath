@@ -1,8 +1,24 @@
 import { Link, Stack } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
-import { theme } from '../src/theme';
+import { Text, View } from 'react-native';
+import { useThemedStyles } from '../src/theme/useThemedStyles';
 
 export default function NotFoundScreen() {
+  const styles = useThemedStyles((theme) => ({
+    container: {
+      flex: 1,
+      backgroundColor: theme.bg,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      padding: 20,
+    },
+    title: {
+      fontSize: 20,
+      fontWeight: '700' as const,
+      color: theme.text,
+    },
+    link: { marginTop: 16 },
+    linkText: { color: theme.accent, fontWeight: '700' as const },
+  }));
   return (
     <>
       <Stack.Screen options={{ title: 'Missing' }} />
@@ -15,25 +31,3 @@ export default function NotFoundScreen() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: theme.text,
-  },
-  link: {
-    marginTop: 16,
-  },
-  linkText: {
-    color: theme.accent,
-    fontWeight: '700',
-  },
-});

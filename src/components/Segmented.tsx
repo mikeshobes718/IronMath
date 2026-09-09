@@ -1,6 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { tick } from '../haptics/feedback';
-import { theme } from '../theme';
+import { useThemedStyles } from '../theme/useThemedStyles';
 
 type Option<T extends string> = { value: T; label: string };
 
@@ -11,6 +11,32 @@ type Props<T extends string> = {
 };
 
 export function Segmented<T extends string>({ value, options, onChange }: Props<T>) {
+  const styles = useThemedStyles((theme) => ({
+    wrap: {
+      flexDirection: 'row' as const,
+      backgroundColor: theme.surface,
+      borderRadius: 12,
+      padding: 3,
+      gap: 3,
+    },
+    item: {
+      flex: 1,
+      paddingVertical: 8,
+      borderRadius: 9,
+      alignItems: 'center' as const,
+    },
+    active: {
+      backgroundColor: theme.accent,
+    },
+    label: {
+      color: theme.muted,
+      fontSize: 14,
+      fontWeight: '700' as const,
+    },
+    activeLabel: {
+      color: theme.accentText,
+    },
+  }));
   return (
     <View style={styles.wrap}>
       {options.map((option) => {
@@ -33,30 +59,3 @@ export function Segmented<T extends string>({ value, options, onChange }: Props<
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  wrap: {
-    flexDirection: 'row',
-    backgroundColor: theme.surface,
-    borderRadius: 12,
-    padding: 3,
-    gap: 3,
-  },
-  item: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 9,
-    alignItems: 'center',
-  },
-  active: {
-    backgroundColor: theme.accent,
-  },
-  label: {
-    color: theme.muted,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  activeLabel: {
-    color: theme.accentText,
-  },
-});

@@ -5,6 +5,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "ironmath-wearables": [
+        "./modules/ironmath-wearables/index.ts"
       ]
     }
   },

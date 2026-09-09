@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { BarbellSleeve } from '../../src/components/BarbellSleeve';
 import { PlateChip, PlateChipGrid } from '../../src/components/Chips';
+import { barPickerOptions, barPickerValue, collarPickerOptions, collarPickerValue } from '../../src/components/equipmentCopy';
+import { PickerRow } from '../../src/components/PickerRow';
 import { Screen } from '../../src/components/Screen';
 import { Segmented } from '../../src/components/Segmented';
 import {
@@ -9,8 +11,7 @@ import {
   barWeight,
   canAddPair,
   collarWeight,
-  englishBreakdown,
-  formatDual,
+  formatWeight,
   plateColor,
   platesForUnit,
   removePairAt,
@@ -19,7 +20,7 @@ import {
 } from '../../src/engine';
 import { tick } from '../../src/haptics/feedback';
 import { useAppStore, useInventory } from '../../src/store/useAppStore';
-import { theme } from '../../src/theme';
+import { useThemedStyles } from '../../src/theme/useThemedStyles';
 
 export default function ReverseScreen() {
   const unit = useAppStore((state) => state.unit);
@@ -29,8 +30,42 @@ export default function ReverseScreen() {
   const collarId = useAppStore((state) => state.collarId);
   const plateTheme = useAppStore((state) => state.plateTheme);
   const setUnit = useAppStore((state) => state.setUnit);
+  const setBarId = useAppStore((state) => state.setBarId);
+  const setCollarId = useAppStore((state) => state.setCollarId);
   const inventory = useInventory();
   const [plates, setPlates] = useState<PlateStackItem[]>([]);
+  const styles = useThemedStyles((theme) => ({
+    kicker: {
+      color: theme.muted,
+      fontSize: 13,
+      fontWeight: '800',
+      letterSpacing: 0.6,
+      textTransform: 'uppercase',
+    },
+    raw: {
+      color: theme.text,
+      fontSize: 44,
+      fontWeight: '800',
+      letterSpacing: -1.4,
+    },
+    pickers: {
+      backgroundColor: theme.surface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: theme.border,
+      overflow: 'hidden',
+    },
+    clear: {
+      alignSelf: 'flex-start',
+      backgroundColor: theme.surface,
+      borderRadius: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    clearText: { color: theme.danger, fontWeight: '700' },
+  }));
 
   const bar = barWeight(barId, unit, customBar);
   const collars = collarWeight(collarId, unit);
@@ -39,8 +74,9 @@ export default function ReverseScreen() {
 
   return (
     <Screen
-      title="What's On The Bar"
-      subtitle="Tap a plate to add a pair. Tap the sleeve to strip it."
+      title="Reverse"
+      subtitle="What is on the bar?"
+      hint="Tap the plates you see. We add them up. Tap a plate on the bar to take that pair off."
       right={
         <View style={{ width: 132 }}>
           <Segmented
@@ -57,14 +93,29 @@ export default function ReverseScreen() {
         </View>
       }
     >
-      <Text style={styles.total}>{formatDual(loaded, unit, rounding)}</Text>
+      <Text style={styles.kicker}>On the bar</Text>
+      <Text style={styles.raw}>{formatWeight(loaded, unit, rounding)}</Text>
       <BarbellSleeve
         plates={plates}
         plateTheme={plateTheme}
         emptyLabel="Tap plates below"
         onPlatePress={(index) => setPlates((current) => removePairAt(current, index))}
       />
-      <Text style={styles.math}>{englishBreakdown(bar, collars, plates, loaded, unit)}</Text>
+      <View style={styles.pickers}>
+        <PickerRow
+          label="Bar"
+          value={barPickerValue(barId, unit, customBar)}
+          options={barPickerOptions(unit, customBar)}
+          onSelect={setBarId}
+        />
+        <PickerRow
+          label="Collars"
+          value={collarPickerValue(collarId, unit)}
+          options={collarPickerOptions(unit)}
+          onSelect={(id) => setCollarId(id)}
+          last
+        />
+      </View>
       <Pressable
         onPress={() => {
           void tick('warn');
@@ -72,7 +123,7 @@ export default function ReverseScreen() {
         }}
         style={styles.clear}
       >
-        <Text style={styles.clearText}>Clear Bar</Text>
+        <Text style={styles.clearText}>Clear bar</Text>
       </Pressable>
       <PlateChipGrid>
         {catalog.map((spec) => {
@@ -93,29 +144,3 @@ export default function ReverseScreen() {
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  total: {
-    color: theme.accent,
-    fontSize: 28,
-    fontWeight: '800',
-  },
-  math: {
-    color: theme.muted,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  clear: {
-    alignSelf: 'flex-start',
-    backgroundColor: theme.surface,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: theme.border,
-  },
-  clearText: {
-    color: theme.danger,
-    fontWeight: '700',
-  },
-});

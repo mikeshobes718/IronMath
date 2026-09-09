@@ -141,12 +141,12 @@ export function plateColor(spec: PlateSpec, theme: PlateTheme): PlateColor {
 
 export function plateSize(spec: PlateSpec): { height: number; width: number } {
   const lb = spec.unit === 'lb' ? spec.weight : spec.weight * LB_PER_KG_APPROX;
-  if (lb >= 50) return { height: 76, width: 16 };
-  if (lb >= 40) return { height: 72, width: 15 };
-  if (lb >= 30) return { height: 64, width: 13 };
-  if (lb >= 20) return { height: 56, width: 12 };
-  if (lb >= 8) return { height: 48, width: 10 };
-  if (lb >= 4) return { height: 36, width: 9 };
-  if (lb >= 2) return { height: 28, width: 8 };
-  return { height: 22, width: 7 };
+  if (lb >= 50) return { height: 88, width: 48 };
+  if (lb >= 40) return { height: 84, width: 46 };
+  if (lb >= 30) return { height: 76, width: 40 };
+  if (lb >= 20) return { height: 68, width: 36 };
+  if (lb >= 8) return { height: 56, width: 32 };
+  if (lb >= 4) return { height: 46, width: 28 };
+  if (lb >= 2) return { height: 38, width: 26 };
+  return { height: 32, width: 24 };
 }

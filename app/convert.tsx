@@ -1,83 +1,125 @@
-import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useMemo } from 'react';
+import { Pressable, Text, View } from 'react-native';
 import { Keypad } from '../src/components/Keypad';
+import { OpenOnGlassesButton } from '../src/components/OpenOnGlassesButton';
 import { Screen } from '../src/components/Screen';
 import { Segmented } from '../src/components/Segmented';
-import { appendKey, convertWeight, formatWeight, parseKeypad, type Rounding, type Unit } from '../src/engine';
+import { useKeypad } from '../src/components/useKeypad';
+import { appendKey, convertWeight, formatWeight, parseKeypad, rawForUnitChange, type Unit } from '../src/engine';
 import { tick } from '../src/haptics/feedback';
 import { useAppStore } from '../src/store/useAppStore';
-import { theme } from '../src/theme';
+import { space } from '../src/theme';
+import { useThemedStyles } from '../src/theme/useThemedStyles';
 
 export default function ConvertScreen() {
-  const storeRounding = useAppStore((state) => state.rounding);
-  const [from, setFrom] = useState<Unit>('lb');
-  const [raw, setRaw] = useState('315');
-  const [rounding, setRounding] = useState<Rounding>(storeRounding);
+  const rounding = useAppStore((state) => state.rounding);
+  const from = useAppStore((state) => state.convertFrom);
+  const raw = useAppStore((state) => state.convertRaw);
+  const setFrom = useAppStore((state) => state.setConvertFrom);
+  const setRaw = useAppStore((state) => state.setConvertRaw);
+  const keypad = useKeypad();
   const value = parseKeypad(raw);
-  const other = from === 'lb' ? 'kg' : 'lb';
+  const other: Unit = from === 'lb' ? 'kg' : 'lb';
   const converted = useMemo(() => convertWeight(value, from, other), [value, from, other]);
+  const styles = useThemedStyles((theme) => ({
+    hero: { gap: 4, marginBottom: space.lg },
+    heroHead: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+    },
+    unitSeg: { width: 128 },
+    kicker: {
+      color: theme.muted,
+      fontSize: 13,
+      fontWeight: '800',
+      letterSpacing: 0.6,
+      textTransform: 'uppercase',
+    },
+    input: {
+      color: theme.text,
+      fontSize: 52,
+      fontWeight: '800',
+      letterSpacing: -1.6,
+    },
+    answer: {
+      backgroundColor: theme.surface,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: theme.border,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      gap: 4,
+    },
+    answerKicker: {
+      color: theme.accent,
+      fontSize: 13,
+      fontWeight: '800',
+      letterSpacing: 0.6,
+      textTransform: 'uppercase',
+    },
+    answerValue: {
+      color: theme.accent,
+      fontSize: 40,
+      fontWeight: '800',
+      letterSpacing: -1.2,
+    },
+  }));
+
+  const switchUnit = (next: Unit) => {
+    if (next === from) {
+      return;
+    }
+    if (value > 0) {
+      setRaw(rawForUnitChange(value, from, next));
+    }
+    setFrom(next);
+  };
 
   return (
     <Screen
-      title="Converter"
-      subtitle="LB and KG, same keypad"
-      footer={<Keypad onKey={(key) => setRaw((current) => appendKey(current, key))} onClear={() => setRaw('')} />}
+      embedded
+      hint="Type a weight. We show the other unit. Tap the number to type. Open on glasses sends this Convert to the Display."
+      onDismiss={keypad.hide}
+      footer={
+        <Keypad
+          open={keypad.open}
+          onOpenChange={keypad.setOpen}
+          onKey={(key) => setRaw(appendKey(raw, key))}
+          onClear={() => setRaw('')}
+        />
+      }
     >
-      <View style={styles.card}>
-        <Text style={styles.from}>{formatWeight(value, from, rounding)}</Text>
-        <Pressable
-          onPress={() => {
-            void tick('medium');
-            setFrom(other);
-            setRaw(String(Number(converted.toFixed(4))));
-          }}
-          style={styles.swap}
-        >
-          <Text style={styles.swapText}>Swap</Text>
-        </Pressable>
-        <Text style={styles.to}>{formatWeight(converted, other, rounding)}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Weight to convert. Opens the keypad."
+        onPress={() => {
+          void tick('light');
+          keypad.show();
+        }}
+        style={styles.hero}
+      >
+        <View style={styles.heroHead}>
+          <Text style={styles.kicker}>From</Text>
+          <View style={styles.unitSeg}>
+            <Segmented
+              value={from}
+              options={[
+                { value: 'lb', label: 'LB' },
+                { value: 'kg', label: 'KG' },
+              ]}
+              onChange={switchUnit}
+            />
+          </View>
+        </View>
+        <Text style={styles.input}>{raw || '0'}</Text>
+      </Pressable>
+      <View style={styles.answer}>
+        <Text style={styles.answerKicker}>{other === 'kg' ? 'In kilos' : 'In pounds'}</Text>
+        <Text style={styles.answerValue}>{formatWeight(converted, other, rounding)}</Text>
       </View>
-      <Segmented
-        value={String(rounding)}
-        options={[
-          { value: '0', label: '0' },
-          { value: '1', label: '1' },
-          { value: '2', label: '2' },
-        ]}
-        onChange={(value) => setRounding(Number(value) as Rounding)}
-      />
+      <OpenOnGlassesButton view="convert" onOpen={keypad.hide} />
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: theme.surface,
-    borderRadius: 16,
-    padding: 18,
-    gap: 12,
-    borderWidth: 1,
-    borderColor: theme.border,
-  },
-  from: {
-    color: theme.text,
-    fontSize: 36,
-    fontWeight: '800',
-  },
-  to: {
-    color: theme.accent,
-    fontSize: 28,
-    fontWeight: '800',
-  },
-  swap: {
-    alignSelf: 'flex-start',
-    backgroundColor: theme.card,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-  },
-  swapText: {
-    color: theme.text,
-    fontWeight: '700',
-  },
-});

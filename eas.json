@@ -19,6 +19,14 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleTeamId": "N7LRRN2YGY",
+        "ascAppId": "6808762294",
+        "sku": "ironmath",
+        "language": "en-US",
+        "appName": "IronMath"
+      }
+    }
   }
 }

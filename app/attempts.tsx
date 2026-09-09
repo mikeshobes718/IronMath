@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useMemo } from 'react';
+import { Pressable, Text, View } from 'react-native';
 import { Keypad } from '../src/components/Keypad';
 import { Screen } from '../src/components/Screen';
+import { useKeypad } from '../src/components/useKeypad';
+import { tick } from '../src/haptics/feedback';
 import {
   appendKey,
   barWeight,
@@ -12,8 +14,9 @@ import {
   planAttempts,
   solveLoad,
 } from '../src/engine';
-import { useAppStore, useInventory } from '../src/store/useAppStore';
-import { theme } from '../src/theme';
+import { BarbellSleeve } from '../src/components/BarbellSleeve';
+import { useAppStore, useInventory, useUnitSeed } from '../src/store/useAppStore';
+import { useThemedStyles } from '../src/theme/useThemedStyles';
 
 export default function AttemptsScreen() {
   const unit = useAppStore((s) => s.unit);
@@ -22,7 +25,33 @@ export default function AttemptsScreen() {
   const customBar = useAppStore((s) => s.customBar);
   const collarId = useAppStore((s) => s.collarId);
   const inventory = useInventory();
-  const [raw, setRaw] = useState(unit === 'lb' ? '250' : '110');
+  const plateTheme = useAppStore((s) => s.plateTheme);
+  const [raw, setRaw] = useUnitSeed('250', '110');
+  const keypad = useKeypad();
+  const styles = useThemedStyles((theme) => ({
+    goal: {
+      backgroundColor: theme.surface,
+      borderRadius: 14,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    goalLabel: { color: theme.muted, fontWeight: '700', fontSize: 12 },
+    goalValue: { color: theme.text, fontWeight: '800', fontSize: 36, letterSpacing: -1 },
+    card: {
+      backgroundColor: theme.surface,
+      borderRadius: 14,
+      padding: 14,
+      borderWidth: 1,
+      borderColor: theme.border,
+      gap: 4,
+    },
+    top: { flexDirection: 'row', justifyContent: 'space-between' },
+    name: { color: theme.accent, fontWeight: '800', fontSize: 16 },
+    weight: { color: theme.text, fontWeight: '800', fontSize: 18 },
+    note: { color: theme.muted, fontSize: 13 },
+    math: { color: theme.muted, fontSize: 12 },
+  }));
   const goal = parseKeypad(raw);
   const plan = planAttempts(goal);
   const bar = barWeight(barId, unit, customBar);
@@ -43,15 +72,30 @@ export default function AttemptsScreen() {
 
   return (
     <Screen
-      title="Meet Attempts"
-      subtitle={`Third around ${formatWeight(goal, unit, rounding)}`}
+      embedded
+      hint={`Type the third-attempt goal. IronMath plans an opener, a second, and a third around ${formatWeight(goal, unit, rounding)}, with plate math for each.`}
+      onDismiss={keypad.hide}
       footer={
         <Keypad
+          open={keypad.open}
+          onOpenChange={keypad.setOpen}
           onKey={(key) => setRaw((c) => appendKey(c, key))}
           onClear={() => setRaw('')}
         />
       }
     >
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Third attempt goal. Opens the keypad."
+        onPress={() => {
+          void tick('light');
+          keypad.show();
+        }}
+        style={styles.goal}
+      >
+        <Text style={styles.goalLabel}>Third attempt goal</Text>
+        <Text style={styles.goalValue}>{raw || '0'}</Text>
+      </Pressable>
       {rows.map((row) => (
         <View key={row.name} style={styles.card}>
           <View style={styles.top}>
@@ -62,6 +106,7 @@ export default function AttemptsScreen() {
             {row.note} · range {formatWeight(row.range[0], unit, rounding)} to{' '}
             {formatWeight(row.range[1], unit, rounding)}
           </Text>
+          <BarbellSleeve plates={row.solution.plates} plateTheme={plateTheme} compact />
           <Text style={styles.math}>
             {englishBreakdown(row.solution.bar, row.solution.collars, row.solution.plates, row.solution.loaded, unit)}
           </Text>
@@ -70,19 +115,3 @@ export default function AttemptsScreen() {
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    backgroundColor: theme.surface,
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: theme.border,
-    gap: 4,
-  },
-  top: { flexDirection: 'row', justifyContent: 'space-between' },
-  name: { color: theme.accent, fontWeight: '800', fontSize: 16 },
-  weight: { color: theme.text, fontWeight: '800', fontSize: 18 },
-  note: { color: theme.muted, fontSize: 13 },
-  math: { color: theme.muted, fontSize: 12 },
-});

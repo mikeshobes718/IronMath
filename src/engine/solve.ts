@@ -59,7 +59,16 @@ function availablePlates(unit: Unit, inventory: InventoryCounts): Array<PlateSpe
   return platesForUnit(unit)
     .map((plate) => ({ ...plate, pairs: Math.max(0, Math.floor(inventory[plate.id] ?? 0)) }))
     .filter((plate) => plate.pairs > 0)
-    .sort((a, b) => b.weight - a.weight);
+    .sort((a, b) => plateRank(a) - plateRank(b));
+}
+
+function plateRank(spec: PlateSpec): number {
+  const order =
+    spec.unit === 'lb'
+      ? [45, 25, 10, 5, 2.5, 35, 55, 1.25, 1, 0.75, 0.5, 0.25]
+      : [20, 25, 15, 10, 5, 2.5, 1.25, 1, 0.5, 0.25];
+  const index = order.indexOf(spec.weight);
+  return index === -1 ? 80 + spec.weight : index;
 }
 
 function closestSleeve(
@@ -83,7 +92,7 @@ function closestSleeve(
     return new Map();
   }
 
-  const heaviest = items[0].units;
+  const heaviest = items.reduce((max, item) => Math.max(max, item.units), 0);
   const limit = goal + heaviest;
   const can = new Uint8Array(limit + 1);
   const parent = new Int32Array(limit + 1);
