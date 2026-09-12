@@ -1,6 +1,6 @@
 (function () {
   var HUD_API = 'https://ironmath-glasses.vercel.app/api/hud';
-  var HUD_VERSION = 'v10';
+  var HUD_VERSION = 'v9';
   var stage = document.getElementById('stage');
   var root = document.getElementById('root');
   var dots = document.getElementById('dots');
@@ -68,12 +68,10 @@
       text = '#18181B';
     }
     var lb = kg ? w * 2.2046226218 : w;
+    var height = lb >= 40 ? 70 : lb >= 20 ? 60 : lb >= 8 ? 48 : 36;
+    var width = lb >= 40 ? 34 : lb >= 20 ? 30 : lb >= 8 ? 22 : 18;
     var label = Number.isInteger(w) ? String(w) : String(Number(w.toFixed(2)));
-    var height = lb >= 40 ? 70 : lb >= 20 ? 60 : lb >= 8 ? 48 : lb >= 2 ? 42 : 36;
-    var width = lb >= 40 ? 36 : lb >= 20 ? 32 : lb >= 8 ? 28 : 30;
-    if (label.length >= 4) width = Math.max(width, 34);
-    else if (label.indexOf('.') !== -1) width = Math.max(width, 30);
-    var font = label.length >= 4 ? 11 : label.indexOf('.') !== -1 ? 12 : label.length >= 2 ? 13 : 14;
+    var font = width >= 34 ? 18 : width >= 28 ? 14 : 0;
     return { fill: fill, stroke: stroke, text: text, height: height, width: width, label: label, font: font };
   }
 
@@ -88,12 +86,10 @@
     return disks;
   }
 
-  function plateHtml(item) {
+  function plateHtml(item, key) {
     var look = plateLook(item);
     return (
-      '<div class="plate" data-weight="' +
-      escapeHtml(look.label) +
-      '" style="width:' +
+      '<div class="plate" style="width:' +
       look.width +
       'px;height:' +
       look.height +
@@ -104,14 +100,14 @@
       ';color:' +
       look.text +
       ';font-size:' +
-      look.font +
-      'px"><span class="plate-label">' +
-      escapeHtml(look.label) +
-      '</span></div>'
+      (look.font || 1) +
+      'px">' +
+      (look.font ? escapeHtml(look.label) : '') +
+      '</div>'
     );
   }
 
-  function renderBar(plates, eachSide) {
+  function renderBar(plates) {
     var disks = expandDisks(plates);
     if (!disks.length) {
       return (
@@ -122,8 +118,8 @@
         '<div class="side">No plates on the bar yet.</div></div>'
       );
     }
-    var stack = disks.map(function (item) {
-      return plateHtml(item);
+    var stack = disks.map(function (item, index) {
+      return plateHtml(item, index);
     }).join('');
     return (
       '<div class="bar-stage">' +
@@ -131,9 +127,7 @@
       '<div class="sleeve left"><span class="tip"></span>' + stack + '<span class="collar"></span></div>' +
       '<div class="shaft"><span class="knurl"></span></div>' +
       '<div class="sleeve right"><span class="collar"></span>' + stack + '<span class="tip"></span></div>' +
-      '</div>' +
-      '<div class="side">' + escapeHtml(eachSide || '') + '</div>' +
-      '</div>'
+      '</div></div>'
     );
   }
 
@@ -238,7 +232,7 @@
           '<div class="target-weight">' + escapeHtml(hud.targetLabel || ' ') + '</div></div>' +
           '<div class="load-block"><div class="kicker">LOAD</div>' +
           '<div class="loaded">' + escapeHtml(hud.loadedLabel) + '</div></div>' +
-          renderBar(hud.plates, hud.eachSide) +
+          renderBar(hud.plates) +
           '<div class="miss ' + (hud.exact ? 'exact' : 'missed') + '">' + escapeHtml(hud.miss) + '</div>' +
           stampHtml();
     } else {

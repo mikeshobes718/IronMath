@@ -1,5 +1,5 @@
 import * as Linking from 'expo-linking';
-import { barWeight, collarWeight, remainingFromEnd } from '../engine';
+import { barWeight, collarWeight, remainingFromEnd, restTimerForGlasses, type RestTimerPayload } from '../engine';
 import { useAppStore } from '../store/useAppStore';
 import {
   buildGlassesWebAppUrl,
@@ -10,6 +10,8 @@ import {
   type GlassesQueryInput,
   type GlassesView,
 } from './glassesQuery';
+
+export type { RestTimerPayload };
 
 export function currentGlassesInput(): Omit<GlassesQueryInput, 'view'> {
   const state = useAppStore.getState();
@@ -34,7 +36,7 @@ export async function addIronMathWebApp(): Promise<string> {
     const supported = await Linking.canOpenURL(deep);
     if (supported) {
       await Linking.openURL(deep);
-      return 'Meta AI should show Connect for IronMath. Do that once. After it is connected, Open on glasses on Load sends the weight to the lens.';
+      return 'Connect IronMath in Meta AI once. After that, Open on glasses on Load saves the weight. Keep IronMath open on the glasses to see it.';
     }
   } catch {
     // Meta AI missing. Fall through to the hosted page.
@@ -43,13 +45,6 @@ export async function addIronMathWebApp(): Promise<string> {
   return 'Opened the glasses page. In Meta AI, Add a Web App named IronMath with https://ironmath-glasses.vercel.app and no extra query.';
 }
 
-export type RestTimerPayload = {
-  end: number | null;
-  remaining: number;
-  duration: number;
-  running: boolean;
-};
-
 export function currentRestTimerPayload(): RestTimerPayload | null {
   const state = useAppStore.getState();
   const duration = state.restDurationSec;
@@ -57,18 +52,32 @@ export function currentRestTimerPayload(): RestTimerPayload | null {
   const remaining = running && state.restEndTs
     ? remainingFromEnd(state.restEndTs, Date.now())
     : Math.max(0, Math.round(state.restRemainingSec));
-  if (!running && remaining >= duration) {
-    return null;
-  }
-  return {
+  return restTimerForGlasses({
     end: running ? state.restEndTs : null,
     remaining,
     duration,
     running,
-  };
+  });
 }
 
 let lastGlassesView: GlassesView = 'load';
+
+type HudApiBody = {
+  ok?: boolean;
+  error?: string;
+  search?: string;
+  view?: GlassesView;
+  ts?: number;
+  persisted?: boolean;
+};
+
+async function readJson(response: Response): Promise<HudApiBody | null> {
+  try {
+    return (await response.json()) as HudApiBody;
+  } catch {
+    return null;
+  }
+}
 
 function postHud(view: GlassesView): Promise<Response> {
   const pageUrl = buildGlassesWebAppUrl({ ...currentGlassesInput(), view });
@@ -88,6 +97,23 @@ function postHud(view: GlassesView): Promise<Response> {
   });
 }
 
+async function confirmHud(posted: HudApiBody): Promise<boolean> {
+  const expectedTs = Number(posted.ts);
+  const expectedSearch = String(posted.search || '');
+  if (!expectedTs || !expectedSearch) {
+    return false;
+  }
+  const response = await fetch(`${GLASSES_HUD_API}?ts=${Date.now()}`, {
+    method: 'GET',
+    headers: { Accept: 'application/json' },
+  });
+  const got = await readJson(response);
+  if (!response.ok || !got || got.ok === false) {
+    return false;
+  }
+  return Number(got.ts) === expectedTs && String(got.search || '') === expectedSearch;
+}
+
 export async function pushRestTimerToGlasses(): Promise<void> {
   try {
     await postHud(lastGlassesView);
@@ -100,13 +126,15 @@ export async function openIronMathOnGlasses(view: GlassesView): Promise<string> 
   lastGlassesView = view;
   try {
     const response = await postHud(view);
-    const payload = (await response.json().catch(() => null)) as
-      | { ok?: boolean; error?: string }
-      | null;
+    const payload = await readJson(response);
     if (!response.ok || payload?.ok === false) {
-      throw new Error(payload?.error || 'Could not send this set to the glasses.');
+      throw new Error(payload?.error || 'Could not save this set for the glasses.');
     }
-    return 'Sent to the glasses. If the lens is blank, pick IronMath in Web Apps.';
+    const confirmed = await confirmHud(payload || {});
+    if (!confirmed) {
+      throw new Error('POST worked, but the glasses page did not keep this set. Try again.');
+    }
+    return 'Saved. Keep IronMath open on the glasses to see this set. The phone cannot bring that page to the front.';
   } catch (error) {
     if (error instanceof Error && error.message && !/network request failed/i.test(error.message)) {
       throw error;

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { planAttempts } from './attempts';
 import { clubOtherCopy, clubProgress } from './club';
-import { englishBreakdown, missCopy } from './breakdown';
+import { eachSideCopy, englishBreakdown, missCopy } from './breakdown';
+import { ALL_PLATES, plateLabelMinWidth, plateSize } from './catalog';
 import { commercialGym, garageGym } from './defaults';
 import { estimateOneRm } from './oneRm';
 import { loadFromRpe, percentAt, rirFromRpe } from './rpe';
@@ -25,6 +26,7 @@ import {
   parseCustomRest,
   remainingFromEnd,
   restPhase,
+  restTimerForGlasses,
 } from './rest';
 import {
   buildGlassesWebAppUrl,
@@ -96,6 +98,25 @@ describe('plate solver', () => {
     expect(result.exact).toBe(true);
     expect(result.loaded).toBe(320.5);
     expect(result.plates).toEqual([{ plateId: 'lb-45', weight: 45, count: 3 }]);
+  });
+
+  it('sizes every plate wide enough for its weight label', () => {
+    for (const spec of ALL_PLATES) {
+      expect(plateSize(spec).width).toBeGreaterThanOrEqual(plateLabelMinWidth(spec.weight));
+    }
+  });
+
+  it('lists 2.5 on a 190 lb each-side copy', () => {
+    const result = solveLoad({
+      target: 190,
+      bar: 45,
+      collars: 0,
+      unit: 'lb',
+      inventory: unlimitedLb,
+    });
+    expect(result.exact).toBe(true);
+    expect(result.plates.some((item) => item.weight === 2.5)).toBe(true);
+    expect(eachSideCopy(result.plates)).toBe('Each side: 45 + 25 + 2.5');
   });
 
   it('uses change plates for 100 lb', () => {
@@ -613,6 +634,18 @@ describe('rest timer', () => {
     expect(restPhase(false, 42, 90)).toBe('paused');
     expect(restPhase(true, 0, 90)).toBe('done');
     expect(restPhase(false, 0, 90)).toBe('done');
+  });
+
+  it('omits idle and finished rest from the glasses HUD payload', () => {
+    expect(restTimerForGlasses({ end: null, remaining: 60, duration: 60, running: false })).toBeNull();
+    expect(restTimerForGlasses({ end: null, remaining: 0, duration: 60, running: false })).toBeNull();
+    expect(restTimerForGlasses({ end: null, remaining: 0, duration: 60, running: true })).toBeNull();
+    expect(
+      restTimerForGlasses({ end: 1_000_000, remaining: 42, duration: 60, running: true })
+    ).toEqual({ end: 1_000_000, remaining: 42, duration: 60, running: true });
+    expect(
+      restTimerForGlasses({ end: null, remaining: 42, duration: 60, running: false })
+    ).toEqual({ end: null, remaining: 42, duration: 60, running: false });
   });
 });
 

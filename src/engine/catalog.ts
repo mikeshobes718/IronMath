@@ -139,14 +139,43 @@ export function plateColor(spec: PlateSpec, theme: PlateTheme): PlateColor {
   return IRON;
 }
 
+export function plateLabelText(weight: number): string {
+  return Number.isInteger(weight) ? String(weight) : String(Number(weight.toFixed(2)));
+}
+
+export function plateLabelMinWidth(weight: number): number {
+  const text = plateLabelText(weight);
+  if (text.length >= 4) return 34;
+  if (text.includes('.')) return 32;
+  if (text.length >= 2) return 26;
+  return 22;
+}
+
 export function plateSize(spec: PlateSpec): { height: number; width: number } {
   const lb = spec.unit === 'lb' ? spec.weight : spec.weight * LB_PER_KG_APPROX;
-  if (lb >= 50) return { height: 88, width: 48 };
-  if (lb >= 40) return { height: 84, width: 46 };
-  if (lb >= 30) return { height: 76, width: 40 };
-  if (lb >= 20) return { height: 68, width: 36 };
-  if (lb >= 8) return { height: 56, width: 32 };
-  if (lb >= 4) return { height: 46, width: 28 };
-  if (lb >= 2) return { height: 38, width: 26 };
-  return { height: 32, width: 24 };
+  let height = 38;
+  let width = 34;
+  if (lb >= 50) {
+    height = 88;
+    width = 48;
+  } else if (lb >= 40) {
+    height = 84;
+    width = 46;
+  } else if (lb >= 30) {
+    height = 76;
+    width = 40;
+  } else if (lb >= 20) {
+    height = 68;
+    width = 36;
+  } else if (lb >= 8) {
+    height = 56;
+    width = 32;
+  } else if (lb >= 4) {
+    height = 48;
+    width = 32;
+  } else if (lb >= 2) {
+    height = 42;
+    width = 34;
+  }
+  return { height, width: Math.max(width, plateLabelMinWidth(spec.weight)) };
 }

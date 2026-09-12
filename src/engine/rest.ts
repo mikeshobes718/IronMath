@@ -143,3 +143,37 @@ export function restPhase(running: boolean, remainingSec: number, durationSec: n
 export function restIsPaused(running: boolean, remainingSec: number, durationSec: number): boolean {
   return restPhase(running, remainingSec, durationSec) === 'paused';
 }
+
+export type RestTimerPayload = {
+  end: number | null;
+  remaining: number;
+  duration: number;
+  running: boolean;
+};
+
+export function restTimerForGlasses(input: {
+  end: number | null;
+  remaining: number;
+  duration: number;
+  running: boolean;
+}): RestTimerPayload | null {
+  const duration = Number(input.duration);
+  const remaining = Number(input.remaining);
+  if (!Number.isFinite(duration) || duration <= 0) {
+    return null;
+  }
+  const phase = restPhase(input.running === true, remaining, duration);
+  if (phase === 'idle' || phase === 'done') {
+    return null;
+  }
+  let end = input.end === null || input.end === undefined ? null : Number(input.end);
+  if (end !== null && !Number.isFinite(end)) {
+    end = null;
+  }
+  return {
+    end: input.running && end ? end : null,
+    remaining: Math.max(0, Math.min(remaining, duration)),
+    duration,
+    running: input.running === true,
+  };
+}

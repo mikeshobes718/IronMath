@@ -1,11 +1,17 @@
 const MAX_SEARCH = 4000;
+const HUD_VERSION = 'v10';
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Cache-Control, Pragma');
+  res.setHeader('Access-Control-Max-Age', '86400');
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.setHeader('Pragma', 'no-cache');
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function memory() {
@@ -19,7 +25,7 @@ function json(res, status, body) {
   cors(res);
   res.statusCode = status;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.end(JSON.stringify(body));
+  res.end(JSON.stringify({ ...body, v: HUD_VERSION }));
 }
 
 function gistId() {
@@ -75,6 +81,7 @@ function enrich(body) {
     const hud = parsed.hud || {};
     return {
       ok: true,
+      persisted: true,
       search: body.search,
       view: body.view === 'convert' ? 'convert' : parsed.view || 'load',
       ts: body.ts,
@@ -128,6 +135,7 @@ function normalizeBody(input) {
   const ts = Number(input && input.ts);
   return enrich({
     ok: true,
+    persisted: true,
     search,
     view,
     ts: Number.isFinite(ts) && ts > 0 ? ts : Date.now(),
@@ -168,7 +176,7 @@ async function writeGist(body) {
   const id = gistId();
   const token = gistToken();
   if (!id || !token) {
-    return false;
+    return { ok: false, status: 0, error: 'HUD store is not configured' };
   }
   const response = await fetch('https://api.github.com/gists/' + id, {
     method: 'PATCH',
@@ -184,30 +192,32 @@ async function writeGist(body) {
       },
     }),
   });
-  return response.ok;
+  if (!response.ok) {
+    const error = response.status === 401 || response.status === 403
+      ? 'HUD store login expired'
+      : 'Could not save this set for the glasses';
+    return { ok: false, status: response.status, error };
+  }
+  return { ok: true, status: response.status };
 }
 
-function newer(left, right) {
-  const a = left && Number(left.ts) ? Number(left.ts) : 0;
-  const b = right && Number(right.ts) ? Number(right.ts) : 0;
-  if (a === b) {
-    return left && left.search ? left : right;
+function sameSnapshot(left, right) {
+  if (!left || !right) {
+    return false;
   }
-  return a > b ? left : right;
+  return Number(left.ts) === Number(right.ts) && String(left.search || '') === String(right.search || '');
 }
 
 async function readHud() {
-  const slot = memory();
   let stored = null;
   try {
     stored = await readGist();
   } catch {
     stored = null;
   }
-  const picked = newer(stored && stored.search ? stored : null, slot.body);
-  if (picked && picked.search) {
-    const snapshot = enrich(picked);
-    slot.body = snapshot;
+  if (stored && stored.search) {
+    const snapshot = enrich(stored);
+    memory().body = snapshot;
     return snapshot;
   }
   return null;
@@ -215,13 +225,27 @@ async function readHud() {
 
 async function writeHud(body) {
   const snapshot = enrich(body);
-  memory().body = snapshot;
-  try {
-    await writeGist(snapshot);
-  } catch {
-    // Shared gist is best effort. GET still prefers gist when it is readable.
+  let last = { ok: false, status: 0, error: 'Could not save this set for the glasses' };
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      last = await writeGist(snapshot);
+    } catch {
+      last = { ok: false, status: 0, error: 'Could not save this set for the glasses' };
+    }
+    if (last.ok) {
+      for (let check = 0; check < 3; check += 1) {
+        const stored = await readGist();
+        if (sameSnapshot(stored, snapshot)) {
+          const confirmed = enrich(stored);
+          memory().body = confirmed;
+          return { ok: true, body: confirmed };
+        }
+        await sleep(150);
+      }
+    }
+    await sleep(200);
   }
-  return snapshot;
+  return { ok: false, error: last.error || 'Could not save this set for the glasses' };
 }
 
 async function readBody(req) {
@@ -259,22 +283,26 @@ module.exports = async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const body = await readHud();
-      json(res, 200, body || { ok: true, search: '', view: 'load', ts: 0, plates: [], timer: null });
+      json(res, 200, body || { ok: true, persisted: true, search: '', view: 'load', ts: 0, plates: [], timer: null });
       return;
     }
     if (req.method === 'POST') {
       const incoming = await readBody(req);
       const body = normalizeBody(incoming || {});
       if (!body) {
-        json(res, 400, { ok: false, error: 'search required' });
+        json(res, 400, { ok: false, persisted: false, error: 'search required' });
         return;
       }
       const stored = await writeHud(body);
-      json(res, 200, stored);
+      if (!stored.ok) {
+        json(res, 503, { ok: false, persisted: false, error: stored.error });
+        return;
+      }
+      json(res, 200, stored.body);
       return;
     }
-    json(res, 405, { ok: false, error: 'GET or POST only' });
+    json(res, 405, { ok: false, persisted: false, error: 'GET or POST only' });
   } catch (error) {
-    json(res, 200, { ok: false, error: String((error && error.message) || error) });
+    json(res, 500, { ok: false, persisted: false, error: String((error && error.message) || error) });
   }
 };

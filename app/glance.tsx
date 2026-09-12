@@ -156,7 +156,7 @@ export default function GlanceScreen() {
 
       <RestTimerCard keypad={keypad} />
 
-      <Text style={styles.note}>Open on glasses sends this set to IronMath on the lens. If the display is blank, pick IronMath in Web Apps.</Text>
+      <Text style={styles.note}>Open on glasses saves this set. Keep IronMath open on the lens to see it. If Meta AI is in front, pick IronMath in Web Apps.</Text>
 
       <OpenOnGlassesButton view="load" filled />
 

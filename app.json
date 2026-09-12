@@ -17,7 +17,7 @@
       "supportsTablet": true,
       "deploymentTarget": "17.2",
       "bundleIdentifier": "app.ironmath.mobile",
-      "buildNumber": "16",
+      "buildNumber": "17",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSSupportsLiveActivities": true,

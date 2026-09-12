@@ -180,7 +180,7 @@ export default function SettingsScreen() {
         </Pressable>
       </Group>
       <GroupFooter>
-        Open on glasses on Load sends the current set to the lens. Meta AI is only for connecting. After that, pick IronMath in Web Apps if the display is blank.
+        Open on glasses on Load saves the current set. Keep IronMath open on the glasses to see it. Meta AI is only for connecting. The phone cannot bring that page to the front.
       </GroupFooter>
       {glassesNote ? <Text style={styles.choiceDetail}>{glassesNote}</Text> : null}
 
