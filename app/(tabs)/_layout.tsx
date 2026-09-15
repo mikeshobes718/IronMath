@@ -25,10 +25,30 @@ function TabIcon(props: { name: ComponentProps<typeof FontAwesome>['name']; colo
 const CAPSULE_MARGIN = 40;
 
 const styles = StyleSheet.create({
-  capsule: {
+  /* The shadow and the clip have to be separate layers. boxShadow is painted
+     from the view's border box, so it belongs on a view that is the capsule's
+     size: hung off tabBarStyle instead, it drew a shadow the full width of the
+     screen (measured: a dark band from 0 to 401.7pt under a capsule spanning
+     40-362pt). Invisible on a near-black page, a wide grey bar on a light one.
+     A view cannot both cast an outer shadow and clip its children here, hence
+     the wrapper. */
+  capsuleShadow: {
     marginHorizontal: CAPSULE_MARGIN,
     borderRadius: radius.pill,
+  },
+  capsuleClip: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: radius.pill,
     overflow: 'hidden',
+  },
+  /* Drawn outside the clip so the stroke is not sliced in half. In light mode
+     the capsule is white-on-white against the cards that scroll under it, and
+     the blur alone does not separate them — this edge is what makes it read as
+     a floating object rather than part of the content below. */
+  capsuleEdge: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
   },
 });
 
@@ -55,23 +75,34 @@ export default function TabLayout() {
         // this background — the fill painted the full width of the screen, so
         // what rendered was a wide light band rather than a pill.
         tabBarBackground: () => (
-          <View style={[StyleSheet.absoluteFillObject, styles.capsule]}>
-            <BlurView
-              intensity={80}
-              tint={scheme === 'dark' ? 'dark' : 'light'}
-              style={StyleSheet.absoluteFillObject}
-            />
-            {/* Painted over the blur, not passed to it: BlurView renders its
-                material above its own backgroundColor, so tinting it directly
-                has no visible effect. The tint is what lifts the capsule clear
-                of the page — a near-black pill on a near-black page reads as
-                background, not as something floating above it. */}
-            <View
-              style={[
-                StyleSheet.absoluteFillObject,
-                { backgroundColor: scheme === 'dark' ? 'rgba(52,49,57,0.72)' : 'rgba(255,255,255,0.82)' },
-              ]}
-            />
+          <View
+            style={[
+              StyleSheet.absoluteFillObject,
+              styles.capsuleShadow,
+              // 0.55 black is right over a near-black page and far too heavy
+              // over a light one, where it reads as dirt rather than depth.
+              cardShadow('#000000', scheme === 'dark' ? 0.55 : 0.16),
+            ]}
+          >
+            <View style={styles.capsuleClip}>
+              <BlurView
+                intensity={80}
+                tint={scheme === 'dark' ? 'dark' : 'light'}
+                style={StyleSheet.absoluteFillObject}
+              />
+              {/* Painted over the blur, not passed to it: BlurView renders its
+                  material above its own backgroundColor, so tinting it directly
+                  has no visible effect. The tint is what lifts the capsule clear
+                  of the page — a near-black pill on a near-black page reads as
+                  background, not as something floating above it. */}
+              <View
+                style={[
+                  StyleSheet.absoluteFillObject,
+                  { backgroundColor: scheme === 'dark' ? 'rgba(52,49,57,0.72)' : 'rgba(255,255,255,0.82)' },
+                ]}
+              />
+            </View>
+            <View pointerEvents="none" style={[styles.capsuleEdge, { borderColor: theme.borderStrong }]} />
           </View>
         ),
         tabBarStyle: {
@@ -83,14 +114,15 @@ export default function TabLayout() {
           bottom: bottomGap,
           paddingHorizontal: CAPSULE_MARGIN,
           height: FLOATING_TAB_BAR_HEIGHT,
-          borderRadius: radius.pill,
+          // No borderRadius and no shadow here: this container is the full
+          // width of the screen, so anything painted on it paints that wide.
+          // Both belong to the capsule inside tabBarBackground.
           borderTopWidth: 0,
           backgroundColor: 'transparent',
           borderWidth: 0,
           paddingTop: 8,
           paddingBottom: 8,
           elevation: 0,
-          ...cardShadow('#000000', 0.55),
         },
         tabBarLabelStyle: {
           fontSize: 10,
