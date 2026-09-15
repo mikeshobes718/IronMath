@@ -7,6 +7,7 @@ import { tick } from '../haptics/feedback';
 import { radius } from '../theme';
 import { useResolvedScheme, useThemeColors } from '../theme/ThemeRoot';
 import { useThemedStyles } from '../theme/useThemedStyles';
+import { useTabBarInset } from './useTabBarInset';
 
 const KEYS = [
   ['1', '2', '3'],
@@ -34,7 +35,7 @@ type Props = {
   aboveTabBar?: boolean;
 };
 
-const SLIDE_DISTANCE = 360;
+const SLIDE_DISTANCE = 460;
 
 export function Numpad({
   onKey,
@@ -48,6 +49,7 @@ export function Numpad({
   const theme = useThemeColors();
   const scheme = useResolvedScheme();
   const insets = useSafeAreaInsets();
+  const tabBarInset = useTabBarInset(8);
   const progress = useSharedValue(mode === 'inline' || visible ? 1 : 0);
 
   useEffect(() => {
@@ -63,7 +65,9 @@ export function Numpad({
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: (1 - progress.value) * SLIDE_DISTANCE }],
-    opacity: 0.4 + progress.value * 0.6,
+    // Fully transparent when closed: the slide alone does not guarantee the
+    // pad is off-screen once it is raised above the floating tab bar.
+    opacity: progress.value,
   }));
 
   const styles = useThemedStyles((t) => ({
@@ -129,7 +133,7 @@ export function Numpad({
     },
   }));
 
-  const padBottom = mode === 'inline' && aboveTabBar ? 8 : Math.max(14, insets.bottom);
+  const padBottom = tabBarInset > 0 ? 12 : Math.max(14, insets.bottom);
 
   const body = (
     <View style={[styles.pad, mode === 'overlay' && styles.padTint, { paddingBottom: padBottom }]}>
@@ -196,7 +200,7 @@ export function Numpad({
   return (
     <Animated.View
       pointerEvents={visible ? 'auto' : 'none'}
-      style={[{ position: 'absolute', left: 0, right: 0, bottom: 0 }, animatedStyle]}
+      style={[{ position: 'absolute', left: 0, right: 0, bottom: tabBarInset }, animatedStyle]}
     >
       <View style={styles.hairline} />
       <BlurView intensity={95} tint={scheme === 'dark' ? 'dark' : 'light'}>

@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColors } from '../theme/ThemeRoot';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import { Glow } from './Glow';
+import { useTabBarInset } from './useTabBarInset';
 
 type Props = {
   title?: string;
@@ -32,6 +33,7 @@ export function Screen({
   glow = false,
 }: Props) {
   const theme = useThemeColors();
+  const bottomInset = useTabBarInset();
   const styles = useThemedStyles((t) => ({
     safe: {
       flex: 1,
@@ -77,6 +79,7 @@ export function Screen({
       paddingBottom: 28,
       gap: 14,
     },
+    contentInset: { paddingBottom: 28 + bottomInset },
     fill: {
       flex: 1,
       paddingHorizontal: 20,
@@ -89,7 +92,7 @@ export function Screen({
   const showHeader = Boolean(title || subtitle || hint || right);
   const body = scroll ? (
     <ScrollView
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, bottomInset > 0 && styles.contentInset]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
       onScrollBeginDrag={dismiss}
