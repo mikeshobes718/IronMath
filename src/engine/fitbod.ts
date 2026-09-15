@@ -1,5 +1,5 @@
 import { convertWeight, type Unit } from './units';
-import { solveLoad, type InventoryCounts, type LoadSolution } from './solve';
+import { loadNeighbors, solveLoad, type InventoryCounts, type LoadBias, type LoadSolution } from './solve';
 
 export interface TargetLoad {
   target: number;
@@ -12,6 +12,14 @@ export interface TargetLoad {
   deltaInput: number;
 }
 
+export interface LoadNeighbor {
+  /** Loadable total, in the gym's unit. */
+  loaded: number;
+  /** The same total expressed in whatever unit the lifter typed. */
+  inInputUnit: number;
+  delta: number;
+}
+
 export type FitbodLoad = TargetLoad;
 
 export function solveTargetLoad(input: {
@@ -21,6 +29,7 @@ export function solveTargetLoad(input: {
   bar: number;
   collars: number;
   inventory: InventoryCounts;
+  bias?: LoadBias;
 }): TargetLoad {
   const targetGym = convertWeight(input.target, input.inputUnit, input.gymUnit);
   const solution = solveLoad({
@@ -29,6 +38,7 @@ export function solveTargetLoad(input: {
     collars: input.collars,
     unit: input.gymUnit,
     inventory: input.inventory,
+    bias: input.bias,
   });
   const loadedLb = convertWeight(solution.loaded, input.gymUnit, 'lb');
   const loadedKg = convertWeight(solution.loaded, input.gymUnit, 'kg');
@@ -43,6 +53,38 @@ export function solveTargetLoad(input: {
     loadedKg,
     deltaInput: loadedInput - input.target,
   };
+}
+
+/**
+ * The nearest loadable totals either side of the solved one, already converted
+ * back into the unit the lifter typed so the Load screen can offer them as taps.
+ */
+export function targetLoadNeighbors(input: {
+  target: number;
+  inputUnit: Unit;
+  gymUnit: Unit;
+  bar: number;
+  collars: number;
+  inventory: InventoryCounts;
+  bias?: LoadBias;
+}): { lighter: LoadNeighbor | null; heavier: LoadNeighbor | null } {
+  const targetGym = convertWeight(input.target, input.inputUnit, input.gymUnit);
+  const { lighter, heavier } = loadNeighbors({
+    target: targetGym,
+    bar: input.bar,
+    collars: input.collars,
+    unit: input.gymUnit,
+    inventory: input.inventory,
+    bias: input.bias,
+  });
+  const shape = (solution: LoadSolution | null): LoadNeighbor | null => {
+    if (!solution) {
+      return null;
+    }
+    const inInputUnit = convertWeight(solution.loaded, input.gymUnit, input.inputUnit);
+    return { loaded: solution.loaded, inInputUnit, delta: inInputUnit - input.target };
+  };
+  return { lighter: shape(lighter), heavier: shape(heavier) };
 }
 
 export function solveFitbodLoad(input: {

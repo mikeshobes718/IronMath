@@ -9,7 +9,18 @@ import { tick } from '../../src/haptics/feedback';
 import { useThemeColors } from '../../src/theme/ThemeRoot';
 import { useThemedStyles } from '../../src/theme/useThemedStyles';
 
-type ToolHref = '/lift' | '/club' | '/percent' | '/remaining' | '/convert' | '/dots' | '/attempts' | '/glance' | '/rest';
+type ToolHref =
+  | '/lift'
+  | '/club'
+  | '/percent'
+  | '/remaining'
+  | '/convert'
+  | '/dots'
+  | '/attempts'
+  | '/glance'
+  | '/rest'
+  | '/onerm'
+  | '/rpe';
 
 const LIFT_ICONS: Record<LiftId, ComponentProps<typeof FontAwesome>['name']> = {
   squat: 'male',
@@ -32,10 +43,22 @@ const GOALS: Array<{
     icon: 'trophy',
   },
   {
+    href: '/onerm',
+    title: 'Estimate your max',
+    detail: 'A weight and the reps you got. We estimate the most you could lift once.',
+    icon: 'line-chart',
+  },
+  {
     href: '/percent',
     title: 'Percentage chart',
-    detail: 'Type a max. See 50 to 100 percent in 5 percent steps.',
+    detail: 'Type a max. See 50 to 100 percent, and what your gym can load at each one.',
     icon: 'percent',
+  },
+  {
+    href: '/rpe',
+    title: 'How hard is this set',
+    detail: 'Pick reps and RPE. We suggest the load off your max.',
+    icon: 'tachometer',
   },
   {
     href: '/remaining',
@@ -100,10 +123,10 @@ export default function ToolsScreen() {
     },
     rowLast: { borderBottomWidth: 0 },
     iconWrap: {
-      width: 36,
-      height: 36,
-      borderRadius: 10,
-      backgroundColor: colors.card,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.accentSoft,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
     },
@@ -126,7 +149,6 @@ export default function ToolsScreen() {
     <Screen
       title="Tools"
       subtitle="By lift and goal"
-      hint="Pick a lift for plates, warm-up, 1RM, and RPE. Your numbers stay after you close the app."
     >
       <GroupHeader>By lift</GroupHeader>
       <Group>

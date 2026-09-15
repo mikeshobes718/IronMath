@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { Keypad } from '../src/components/Keypad';
+import { Numpad } from '../src/components/Numpad';
 import { OpenOnGlassesButton } from '../src/components/OpenOnGlassesButton';
 import { Screen } from '../src/components/Screen';
 import { Segmented } from '../src/components/Segmented';
@@ -45,7 +45,7 @@ export default function ConvertScreen() {
     },
     answer: {
       backgroundColor: theme.surface,
-      borderRadius: 16,
+      borderRadius: 22,
       borderWidth: 1,
       borderColor: theme.border,
       paddingHorizontal: 14,
@@ -80,12 +80,12 @@ export default function ConvertScreen() {
   return (
     <Screen
       embedded
-      hint="Type a weight. We show the other unit. Tap the number to type. Open on glasses sends this Convert to the Display."
       onDismiss={keypad.hide}
       footer={
-        <Keypad
-          open={keypad.open}
-          onOpenChange={keypad.setOpen}
+        <Numpad
+          mode="overlay"
+          visible={keypad.open}
+          onDone={keypad.hide}
           onKey={(key) => setRaw(appendKey(raw, key))}
           onClear={() => setRaw('')}
         />

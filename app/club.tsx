@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { Keypad } from '../src/components/Keypad';
+import { Numpad } from '../src/components/Numpad';
 import { Screen } from '../src/components/Screen';
 import { Segmented } from '../src/components/Segmented';
 import { useKeypad } from '../src/components/useKeypad';
@@ -73,7 +73,7 @@ export default function ClubScreen() {
     field: {
       flex: 1,
       backgroundColor: theme.surface,
-      borderRadius: 16,
+      borderRadius: 22,
       borderWidth: 1,
       borderColor: theme.border,
       padding: 12,
@@ -110,12 +110,12 @@ export default function ClubScreen() {
   return (
     <Screen
       embedded
-      hint="Type your best squat, bench, and deadlift. We add them up and keep the numbers after you close the app."
       onDismiss={keypad.hide}
       footer={
-        <Keypad
-          open={keypad.open}
-          onOpenChange={keypad.setOpen}
+        <Numpad
+          mode="overlay"
+          visible={keypad.open}
+          onDone={keypad.hide}
           onKey={(key) => setClubField(field, appendKey(club[field], key))}
           onClear={() => setClubField(field, '')}
         />

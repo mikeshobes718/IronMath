@@ -11,6 +11,12 @@ export interface PlateStackItem {
   count: number;
 }
 
+/**
+ * How the solver breaks a tie it cannot hit exactly.
+ * `down` never goes over the target, `up` never comes in under it.
+ */
+export type LoadBias = 'nearest' | 'down' | 'up';
+
 export interface LoadSolution {
   target: number;
   loaded: number;
@@ -44,15 +50,52 @@ export function solveLoad(input: {
   collars: number;
   unit: Unit;
   inventory: InventoryCounts;
+  bias?: LoadBias;
 }): LoadSolution {
   const { target, bar, collars, unit, inventory } = input;
+  const bias = input.bias ?? 'nearest';
   const available = availablePlates(unit, inventory);
   const sleeveTarget = toHundredths((target - bar - collars) / 2);
   if (sleeveTarget <= 0 || available.length === 0) {
     return emptySolution(target, bar, collars, unit);
   }
-  const combo = closestSleeve(sleeveTarget, available);
+  const dp = buildSleeveDp(sleeveTarget, available);
+  if (!dp) {
+    return emptySolution(target, bar, collars, unit);
+  }
+  const combo = reconstruct(dp, pickSum(dp, bias));
   return finalize(target, bar, collars, unit, combo);
+}
+
+/**
+ * The closest loadable totals on either side of the solved load. Lets the
+ * Load screen show what you *can* hit when the exact target is off the menu.
+ */
+export function loadNeighbors(input: {
+  target: number;
+  bar: number;
+  collars: number;
+  unit: Unit;
+  inventory: InventoryCounts;
+  bias?: LoadBias;
+}): { lighter: LoadSolution | null; heavier: LoadSolution | null } {
+  const { target, bar, collars, unit, inventory } = input;
+  const available = availablePlates(unit, inventory);
+  const sleeveTarget = toHundredths((target - bar - collars) / 2);
+  if (sleeveTarget <= 0 || available.length === 0) {
+    return { lighter: null, heavier: null };
+  }
+  const dp = buildSleeveDp(sleeveTarget, available);
+  if (!dp) {
+    return { lighter: null, heavier: null };
+  }
+  const chosen = pickSum(dp, input.bias ?? 'nearest');
+  const below = stepReachable(dp, chosen, -1);
+  const above = stepReachable(dp, chosen, 1);
+  return {
+    lighter: below === null ? null : finalize(target, bar, collars, unit, reconstruct(dp, below)),
+    heavier: above === null ? null : finalize(target, bar, collars, unit, reconstruct(dp, above)),
+  };
 }
 
 function availablePlates(unit: Unit, inventory: InventoryCounts): Array<PlateSpec & { pairs: number }> {
@@ -71,74 +114,149 @@ function plateRank(spec: PlateSpec): number {
   return index === -1 ? 80 + spec.weight : index;
 }
 
-function closestSleeve(
+function gcd(a: number, b: number): number {
+  let x = Math.abs(a);
+  let y = Math.abs(b);
+  while (y > 0) {
+    const t = x % y;
+    x = y;
+    y = t;
+  }
+  return x;
+}
+
+/**
+ * Subset-sum over one sleeve, in steps of the greatest common divisor of the
+ * plates on hand. Every reachable sum is a multiple of that step, so working in
+ * step units instead of hundredths shrinks the table by 10-100x on a real gym's
+ * plate set and keeps every keystroke cheap.
+ */
+interface SleeveDp {
+  can: Uint8Array;
+  parent: Int32Array;
+  plateAt: Int16Array;
+  ids: string[];
+  step: number;
+  goal: number;
+  limit: number;
+}
+
+function buildSleeveDp(
   targetHundredths: number,
   plates: Array<PlateSpec & { pairs: number }>
-): Map<string, number> {
+): SleeveDp | null {
   const goal = Math.max(0, Math.round(targetHundredths));
-  const items: Array<{ id: string; units: number }> = [];
+  const ids: string[] = [];
+  const unitsById: number[] = [];
+  const pairsById: number[] = [];
   for (const plate of plates) {
     const units = toHundredths(plate.weight);
     if (units <= 0) {
       continue;
     }
-    const max = Math.min(plate.pairs, Math.floor(goal / units) + 1);
-    for (let i = 0; i < max; i += 1) {
-      items.push({ id: plate.id, units });
+    ids.push(plate.id);
+    unitsById.push(units);
+    pairsById.push(plate.pairs);
+  }
+  if (ids.length === 0) {
+    return null;
+  }
+
+  const step = unitsById.reduce((acc, units) => gcd(acc, units), unitsById[0]);
+  const items: Array<{ index: number; steps: number }> = [];
+  let heaviest = 0;
+  for (let index = 0; index < ids.length; index += 1) {
+    const steps = unitsById[index] / step;
+    heaviest = Math.max(heaviest, steps);
+    const copies = Math.min(pairsById[index], Math.floor(goal / unitsById[index]) + 1);
+    for (let i = 0; i < copies; i += 1) {
+      items.push({ index, steps });
     }
   }
-
   if (items.length === 0) {
-    return new Map();
+    return null;
   }
 
-  const heaviest = items.reduce((max, item) => Math.max(max, item.units), 0);
-  const limit = goal + heaviest;
+  const limit = Math.floor(goal / step) + heaviest;
   const can = new Uint8Array(limit + 1);
-  const parent = new Int32Array(limit + 1);
-  const plateAt: Array<string | null> = Array.from({ length: limit + 1 }, () => null);
+  const parent = new Int32Array(limit + 1).fill(-1);
+  const plateAt = new Int16Array(limit + 1).fill(-1);
   can[0] = 1;
-  parent.fill(-1);
 
   for (const item of items) {
-    for (let sum = limit; sum >= item.units; sum -= 1) {
-      if (can[sum] === 0 && can[sum - item.units] === 1) {
+    for (let sum = limit; sum >= item.steps; sum -= 1) {
+      if (can[sum] === 0 && can[sum - item.steps] === 1) {
         can[sum] = 1;
-        parent[sum] = sum - item.units;
-        plateAt[sum] = item.id;
+        parent[sum] = sum - item.steps;
+        plateAt[sum] = item.index;
       }
     }
   }
 
+  return { can, parent, plateAt, ids, step, goal, limit };
+}
+
+function pickSum(dp: SleeveDp, bias: LoadBias): number {
+  const { can, step, goal, limit } = dp;
   let best = 0;
-  let bestDiff = goal;
+  let bestDiff = Number.POSITIVE_INFINITY;
   for (let sum = 0; sum <= limit; sum += 1) {
     if (can[sum] === 0) {
       continue;
     }
-    const diff = Math.abs(sum - goal);
-    if (diff < bestDiff || (diff === bestDiff && sum <= goal && best > goal)) {
+    const hundredths = sum * step;
+    if (bias === 'down' && hundredths > goal) {
+      break;
+    }
+    if (bias === 'up' && hundredths < goal) {
+      continue;
+    }
+    const diff = Math.abs(hundredths - goal);
+    // Ties go to the lighter bar: overloading by surprise is worse than
+    // coming in a hair under.
+    if (diff < bestDiff) {
       best = sum;
       bestDiff = diff;
     }
+    if (bias === 'up') {
+      break;
+    }
   }
-
-  return reconstruct(best, parent, plateAt);
+  if (bestDiff === Number.POSITIVE_INFINITY) {
+    // `up` with nothing heavy enough on the rack: give the heaviest we can.
+    return bias === 'up' ? heaviestReachable(dp) : 0;
+  }
+  return best;
 }
 
-function reconstruct(
-  sum: number,
-  parent: Int32Array,
-  plateAt: Array<string | null>
-): Map<string, number> {
+function heaviestReachable(dp: SleeveDp): number {
+  for (let sum = dp.limit; sum >= 0; sum -= 1) {
+    if (dp.can[sum] === 1) {
+      return sum;
+    }
+  }
+  return 0;
+}
+
+function stepReachable(dp: SleeveDp, from: number, direction: 1 | -1): number | null {
+  for (let sum = from + direction; sum >= 0 && sum <= dp.limit; sum += direction) {
+    if (dp.can[sum] === 1) {
+      return sum;
+    }
+  }
+  return null;
+}
+
+function reconstruct(dp: SleeveDp, sum: number): Map<string, number> {
   const counts = new Map<string, number>();
   let current = sum;
   while (current > 0) {
-    const id = plateAt[current];
-    const prev = parent[current];
-    if (!id || prev < 0) {
+    const index = dp.plateAt[current];
+    const prev = dp.parent[current];
+    if (index < 0 || prev < 0) {
       break;
     }
+    const id = dp.ids[index];
     counts.set(id, (counts.get(id) ?? 0) + 1);
     current = prev;
   }

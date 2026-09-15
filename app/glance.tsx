@@ -29,7 +29,7 @@ export default function GlanceScreen() {
   const styles = useThemedStyles((colors) => ({
     block: {
       backgroundColor: colors.surface,
-      borderRadius: 16,
+      borderRadius: 22,
       borderWidth: 1,
       borderColor: colors.border,
       paddingHorizontal: 16,
@@ -71,7 +71,7 @@ export default function GlanceScreen() {
     bump: {
       flex: 1,
       minHeight: 56,
-      borderRadius: 14,
+      borderRadius: 999,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
       backgroundColor: colors.card,
@@ -81,7 +81,7 @@ export default function GlanceScreen() {
     bumpLabel: { color: colors.text, fontSize: 20, fontWeight: '800' as const },
     actionGhost: {
       minHeight: 54,
-      borderRadius: 14,
+      borderRadius: 999,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
       backgroundColor: colors.surface,

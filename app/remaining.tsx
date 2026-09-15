@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { Keypad } from '../src/components/Keypad';
+import { Numpad } from '../src/components/Numpad';
 import { Screen } from '../src/components/Screen';
 import { Segmented } from '../src/components/Segmented';
 import { useKeypad } from '../src/components/useKeypad';
@@ -50,7 +50,7 @@ export default function RemainingScreen() {
     field: {
       flex: 1,
       backgroundColor: theme.surface,
-      borderRadius: 16,
+      borderRadius: 22,
       borderWidth: 1,
       borderColor: theme.border,
       padding: 14,
@@ -90,12 +90,12 @@ export default function RemainingScreen() {
   return (
     <Screen
       embedded
-      hint="Type what you have and what you want. We keep both after you close the app."
       onDismiss={keypad.hide}
       footer={
-        <Keypad
-          open={keypad.open}
-          onOpenChange={keypad.setOpen}
+        <Numpad
+          mode="overlay"
+          visible={keypad.open}
+          onDone={keypad.hide}
           onKey={(key) => {
             if (field === 'have') {
               setRemainHave(appendKey(haveRaw, key));

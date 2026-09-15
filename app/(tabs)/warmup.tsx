@@ -3,7 +3,8 @@ import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { BarbellSleeve } from '../../src/components/BarbellSleeve';
-import { Keypad } from '../../src/components/Keypad';
+import { ChipRow } from '../../src/components/Chips';
+import { Numpad } from '../../src/components/Numpad';
 import { Screen } from '../../src/components/Screen';
 import { Segmented } from '../../src/components/Segmented';
 import { useKeypad } from '../../src/components/useKeypad';
@@ -16,8 +17,11 @@ import {
   formatWeight,
   parseKeypad,
   rawForUnitChange,
+  repsCopy,
   warmupLadder,
+  WARMUP_SCHEMES,
   type Unit,
+  type WarmupSchemeId,
   type WarmupSet,
 } from '../../src/engine';
 import { tick } from '../../src/haptics/feedback';
@@ -35,6 +39,9 @@ export default function WarmupScreen() {
   const plateTheme = useAppStore((state) => state.plateTheme);
   const warmupSeed = useAppStore((state) => state.warmupSeed);
   const setWarmupSeed = useAppStore((state) => state.setWarmupSeed);
+  const loadBias = useAppStore((state) => state.loadBias);
+  const schemeId = useAppStore((state) => state.warmupSchemeId);
+  const setWarmupScheme = useAppStore((state) => state.setWarmupScheme);
   const [displayUnit, setDisplayUnit] = useState<Unit>('lb');
   const [raw, setRaw] = useState('225');
   const [picked, setPicked] = useState<WarmupSet | null>(null);
@@ -90,7 +97,7 @@ export default function WarmupScreen() {
     ladderContent: { paddingBottom: 16, gap: 12 },
     row: {
       backgroundColor: theme.surface,
-      borderRadius: 16,
+      borderRadius: 22,
       borderWidth: 1,
       borderColor: theme.border,
       paddingHorizontal: 14,
@@ -101,10 +108,20 @@ export default function WarmupScreen() {
     },
     pct: {
       width: 52,
+      gap: 2,
+    },
+    pctLabel: {
       color: theme.muted,
       fontSize: 15,
       fontWeight: '800',
     },
+    pctReps: {
+      color: theme.dim,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    schemeWrap: { marginBottom: 12, gap: 6 },
+    schemeHint: { color: theme.dim, fontSize: 12, lineHeight: 17 },
     rowCopy: { flex: 1, gap: 4 },
     weight: {
       color: theme.accent,
@@ -160,7 +177,7 @@ export default function WarmupScreen() {
     closeBtn: {
       marginTop: 4,
       backgroundColor: theme.surface,
-      borderRadius: 14,
+      borderRadius: 999,
       borderWidth: 1,
       borderColor: theme.border,
       paddingVertical: 14,
@@ -180,8 +197,10 @@ export default function WarmupScreen() {
         collarId,
         unit: displayUnit,
         inventory,
+        scheme: schemeId,
+        bias: loadBias,
       }),
-    [target, barId, customBar, collarId, displayUnit, inventory]
+    [target, barId, customBar, collarId, displayUnit, inventory, schemeId, loadBias]
   );
 
   const topSet = sets.find((set) => set.percent === 1) ?? sets[sets.length - 1];
@@ -228,14 +247,14 @@ export default function WarmupScreen() {
     <Screen
       title="Warm-Up"
       subtitle="Lighter sets first"
-      hint="Warm up to your top set. We spread it into lighter sets first. Tap a set to see the bar."
       scroll={false}
+      glow
       onDismiss={keypad.hide}
       footer={
-        <Keypad
-          aboveTabBar
-          open={keypad.open}
-          onOpenChange={keypad.setOpen}
+        <Numpad
+          mode="overlay"
+          visible={keypad.open}
+          onDone={keypad.hide}
           onKey={(key) => setRaw((current) => appendKey(current, key))}
           onClear={() => setRaw('')}
         />
@@ -268,6 +287,20 @@ export default function WarmupScreen() {
           <Text style={styles.dual}>{topShown}</Text>
         </Pressable>
 
+        <View style={styles.schemeWrap}>
+          <ChipRow
+            items={WARMUP_SCHEMES.map((scheme) => ({ id: scheme.id, label: scheme.name }))}
+            selected={schemeId}
+            onSelect={(id) => {
+              keypad.hide();
+              setWarmupScheme(id as WarmupSchemeId);
+            }}
+          />
+          <Text style={styles.schemeHint}>
+            {WARMUP_SCHEMES.find((scheme) => scheme.id === schemeId)?.detail}
+          </Text>
+        </View>
+
         <ScrollView
           style={styles.ladder}
           contentContainerStyle={styles.ladderContent}
@@ -282,11 +315,16 @@ export default function WarmupScreen() {
               <Pressable
                 key={set.label}
                 accessibilityRole="button"
-                accessibilityLabel={`${set.label}, ${shown}. ${actionFor(set)}. ${set.swap.fromLast ?? ''} Shows the bar.`}
+                accessibilityLabel={`${set.label}, ${repsCopy(set.reps)}, ${shown}. ${actionFor(set)}. ${
+                  set.swap.fromLast ?? ''
+                } Shows the bar.`}
                 onPress={() => openRung(set)}
                 style={styles.row}
               >
-                <Text style={styles.pct}>{set.label}</Text>
+                <View style={styles.pct}>
+                  <Text style={styles.pctLabel}>{set.label}</Text>
+                  <Text style={styles.pctReps}>{repsCopy(set.reps)}</Text>
+                </View>
                 <View style={styles.rowCopy}>
                   <Text style={styles.weight}>{shown}</Text>
                   <Text style={styles.action}>{actionFor(set)}</Text>
@@ -308,7 +346,9 @@ export default function WarmupScreen() {
               <>
                 <View style={styles.sheetHead}>
                   <View>
-                    <Text style={styles.sheetTitle}>{picked.label}</Text>
+                    <Text style={styles.sheetTitle}>
+                      {picked.label} · {repsCopy(picked.reps)}
+                    </Text>
                     <Text style={styles.sheetWeight}>{showWeight(picked)}</Text>
                   </View>
                   <Pressable

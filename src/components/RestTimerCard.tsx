@@ -1,3 +1,4 @@
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import {
@@ -11,6 +12,8 @@ import {
 } from '../engine';
 import { tick } from '../haptics/feedback';
 import { useAppStore } from '../store/useAppStore';
+import { cardShadow, glowShadow, radius } from '../theme';
+import { useThemeColors } from '../theme/ThemeRoot';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import {
   beginCustomRestDuration,
@@ -22,15 +25,20 @@ import {
   useRestTimer,
 } from '../wearables/restTimer';
 import { ChipRow } from './Chips';
-import { Keypad } from './Keypad';
+import { Glow } from './Glow';
+import { Numpad } from './Numpad';
+import { ProgressRing } from './ProgressRing';
 import { useKeypad } from './useKeypad';
 
 const PHASE_COPY: Record<RestPhase, string> = {
-  idle: 'Ready',
-  running: 'Resting',
-  paused: 'Paused',
-  done: 'Time to lift',
+  idle: 'READY',
+  running: 'RESTING',
+  paused: 'PAUSED',
+  done: 'TIME TO LIFT',
 };
+
+const RING_SIZE = 264;
+const RING_STROKE = 14;
 
 export type RestKeypad = ReturnType<typeof useKeypad>;
 
@@ -45,9 +53,10 @@ export function RestDurationKeypad({ keypad }: { keypad: RestKeypad }) {
     return null;
   }
   return (
-    <Keypad
-      open={keypad.open}
-      onOpenChange={keypad.setOpen}
+    <Numpad
+      mode="overlay"
+      visible={keypad.open}
+      onDone={keypad.hide}
       onKey={(key) => void typeCustomRest(appendRestKey(raw, key))}
       onClear={() => void typeCustomRest('')}
     />
@@ -55,107 +64,95 @@ export function RestDurationKeypad({ keypad }: { keypad: RestKeypad }) {
 }
 
 export function RestTimerCard({ keypad }: Props) {
+  const theme = useThemeColors();
   const { durationSec, remainingSec, phase } = useRestTimer();
   const usingCustom = useAppStore((state) => state.restUsingCustom);
   const customRaw = useAppStore((state) => state.restCustomRaw);
   const [startBlocked, setStartBlocked] = useState(false);
   const customValid = !usingCustom || applyCustomRest(customRaw) !== null;
-  const styles = useThemedStyles((theme) => ({
+  const styles = useThemedStyles((t) => ({
     card: {
-      backgroundColor: theme.surface,
-      borderRadius: 16,
+      backgroundColor: t.surface,
+      borderRadius: radius.xl,
       borderWidth: 1,
-      borderColor: theme.border,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      gap: 12,
+      borderColor: t.border,
+      paddingHorizontal: 18,
+      paddingVertical: 22,
+      gap: 18,
       marginBottom: 16,
-    },
-    headRow: {
-      flexDirection: 'row' as const,
-      alignItems: 'baseline' as const,
-      justifyContent: 'space-between' as const,
-    },
-    kicker: {
-      color: phase === 'done' ? theme.success : theme.muted,
-      fontSize: 13,
-      fontWeight: '800' as const,
-      letterSpacing: 0.6,
-      textTransform: 'uppercase' as const,
-    },
-    of: { color: theme.dim, fontSize: 13, fontWeight: '700' as const },
-    clock: {
-      color: theme.text,
-      fontSize: 72,
-      fontWeight: '800' as const,
-      letterSpacing: -2.4,
-      lineHeight: 76,
-      fontVariant: ['tabular-nums' as const],
-      textAlign: 'center' as const,
-    },
-    clockLive: { color: theme.accent },
-    clockDone: { color: theme.success },
-    track: {
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: theme.card,
+      alignItems: 'center' as const,
       overflow: 'hidden' as const,
     },
-    fill: {
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: phase === 'done' ? theme.success : theme.accent,
-    },
-    custom: {
-      backgroundColor: theme.card,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: keypad.open ? theme.accent : theme.border,
+    phasePill: {
       paddingHorizontal: 14,
-      paddingVertical: 12,
+      paddingVertical: 6,
+      borderRadius: radius.pill,
+      backgroundColor: phase === 'done' ? `${t.success}22` : t.card,
+    },
+    phaseText: {
+      color: phase === 'done' ? t.success : t.muted,
+      fontSize: 12,
+      fontWeight: '800' as const,
+      letterSpacing: 1,
+    },
+    ringWrap: { alignItems: 'center' as const, justifyContent: 'center' as const },
+    clock: {
+      color: t.text,
+      fontSize: 60,
+      fontWeight: '800' as const,
+      letterSpacing: -2,
+      fontVariant: ['tabular-nums' as const],
+    },
+    clockDone: { color: t.success },
+    of: { color: t.dim, fontSize: 13, fontWeight: '700' as const, marginTop: 2 },
+    custom: {
+      width: '100%' as const,
+      backgroundColor: t.card,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: keypad.open ? t.accent : t.border,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
       gap: 4,
     },
     customKicker: {
-      color: theme.muted,
-      fontSize: 13,
+      color: t.muted,
+      fontSize: 12,
       fontWeight: '800' as const,
       letterSpacing: 0.6,
       textTransform: 'uppercase' as const,
     },
     customValue: {
-      color: theme.text,
-      fontSize: 36,
+      color: t.text,
+      fontSize: 34,
       fontWeight: '800' as const,
-      letterSpacing: -1.2,
+      letterSpacing: -1,
       fontVariant: ['tabular-nums' as const],
     },
-    customHint: { color: theme.dim, fontSize: 13, lineHeight: 18 },
-    customHintBad: { color: theme.danger, fontSize: 13, lineHeight: 18 },
-    actions: { flexDirection: 'row' as const, gap: 10 },
+    customHint: { color: t.dim, fontSize: 13, lineHeight: 18 },
+    customHintBad: { color: t.danger, fontSize: 13, lineHeight: 18 },
+    actions: { flexDirection: 'row' as const, gap: 12, width: '100%' as const, alignItems: 'center' as const },
     primary: {
       flex: 1,
-      minHeight: 54,
-      borderRadius: 14,
+      minHeight: 58,
+      borderRadius: radius.pill,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
-      backgroundColor: theme.accent,
+      backgroundColor: t.accent,
       paddingHorizontal: 14,
     },
-    primaryLabel: { color: theme.accentText, fontSize: 17, fontWeight: '800' as const },
+    primaryLabel: { color: t.accentText, fontSize: 17, fontWeight: '800' as const },
     ghost: {
-      minHeight: 54,
-      borderRadius: 14,
+      width: 58,
+      height: 58,
+      borderRadius: 29,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
-      backgroundColor: theme.surface,
-      borderWidth: 1,
-      borderColor: theme.border,
-      paddingHorizontal: 18,
+      backgroundColor: t.card,
     },
-    ghostLabel: { color: theme.text, fontSize: 17, fontWeight: '800' as const },
   }));
 
-  const progress = durationSec > 0 ? Math.min(100, Math.max(0, (1 - remainingSec / durationSec) * 100)) : 0;
+  const progress = durationSec > 0 ? 1 - remainingSec / durationSec : 0;
   const primaryLabel =
     phase === 'running' ? 'Pause' : phase === 'paused' ? 'Resume' : phase === 'done' ? 'Go again' : 'Start';
 
@@ -178,17 +175,27 @@ export function RestTimerCard({ keypad }: Props) {
   };
 
   return (
-    <View style={styles.card}>
-      <View style={styles.headRow}>
-        <Text style={styles.kicker}>{PHASE_COPY[phase]}</Text>
-        <Text style={styles.of}>of {formatRestClock(durationSec)}</Text>
+    <View style={[styles.card, cardShadow(theme.bg, 0.5)]}>
+      {phase === 'running' || phase === 'done' ? (
+        <Glow color={phase === 'done' ? theme.success : theme.accent} size={340} top={-90} opacity={0.28} />
+      ) : null}
+      <View style={styles.phasePill}>
+        <Text style={styles.phaseText}>{PHASE_COPY[phase]}</Text>
       </View>
-      <Text style={[styles.clock, phase === 'running' && styles.clockLive, phase === 'done' && styles.clockDone]}>
-        {formatRestClock(remainingSec)}
-      </Text>
-      <View style={styles.track}>
-        <View style={[styles.fill, { width: `${progress}%` }]} />
+
+      <View style={styles.ringWrap}>
+        <ProgressRing
+          size={RING_SIZE}
+          strokeWidth={RING_STROKE}
+          progress={progress}
+          trackColor={theme.card}
+          fillColor={phase === 'done' ? theme.success : theme.accent}
+        >
+          <Text style={[styles.clock, phase === 'done' && styles.clockDone]}>{formatRestClock(remainingSec)}</Text>
+          <Text style={styles.of}>of {formatRestClock(durationSec)}</Text>
+        </ProgressRing>
       </View>
+
       <ChipRow
         items={[
           ...REST_PRESETS.map((sec) => ({ id: String(sec), label: formatRestClock(sec) })),
@@ -230,7 +237,7 @@ export function RestTimerCard({ keypad }: Props) {
           accessibilityRole="button"
           accessibilityLabel={`${primaryLabel} rest timer`}
           onPress={onPrimary}
-          style={styles.primary}
+          style={[styles.primary, glowShadow(theme.accent, phase === 'running' ? 0 : 0.35)]}
         >
           <Text style={styles.primaryLabel}>{primaryLabel}</Text>
         </Pressable>
@@ -244,7 +251,7 @@ export function RestTimerCard({ keypad }: Props) {
             }}
             style={styles.ghost}
           >
-            <Text style={styles.ghostLabel}>Reset</Text>
+            <FontAwesome name="rotate-left" size={18} color={theme.text} />
           </Pressable>
         ) : null}
       </View>

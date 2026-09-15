@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { Keypad } from '../src/components/Keypad';
+import { Numpad } from '../src/components/Numpad';
 import { Screen } from '../src/components/Screen';
 import { Segmented } from '../src/components/Segmented';
 import { useKeypad } from '../src/components/useKeypad';
@@ -37,7 +37,7 @@ export default function OneRmScreen() {
     field: {
       flex: 1,
       backgroundColor: theme.surface,
-      borderRadius: 16,
+      borderRadius: 22,
       borderWidth: 1,
       borderColor: theme.border,
       padding: 14,
@@ -47,7 +47,7 @@ export default function OneRmScreen() {
     fieldValue: { color: theme.text, fontWeight: '800', fontSize: 22, marginTop: 4 },
     answer: {
       backgroundColor: theme.surface,
-      borderRadius: 16,
+      borderRadius: 22,
       borderWidth: 1,
       borderColor: theme.border,
       paddingHorizontal: 14,
@@ -73,12 +73,12 @@ export default function OneRmScreen() {
   return (
     <Screen
       embedded
-      hint="Type a weight you lifted and how many reps. We estimate the most you could lift once."
       onDismiss={keypad.hide}
       footer={
-        <Keypad
-          open={keypad.open}
-          onOpenChange={keypad.setOpen}
+        <Numpad
+          mode="overlay"
+          visible={keypad.open}
+          onDone={keypad.hide}
           onKey={(key) => {
             if (field === 'weight') {
               setWeightRaw((current) => appendKey(current, key));

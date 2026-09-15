@@ -14,3 +14,4 @@ export * from './percent';
 export * from './lifts';
 export * from './glance';
 export * from './rest';
+export * from './log';

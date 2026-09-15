@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { Keypad } from '../src/components/Keypad';
+import { Numpad } from '../src/components/Numpad';
 import { Screen } from '../src/components/Screen';
 import { useKeypad } from '../src/components/useKeypad';
 import { tick } from '../src/haptics/feedback';
@@ -31,7 +31,7 @@ export default function AttemptsScreen() {
   const styles = useThemedStyles((theme) => ({
     goal: {
       backgroundColor: theme.surface,
-      borderRadius: 14,
+      borderRadius: 22,
       padding: 14,
       borderWidth: 1,
       borderColor: theme.border,
@@ -40,7 +40,7 @@ export default function AttemptsScreen() {
     goalValue: { color: theme.text, fontWeight: '800', fontSize: 36, letterSpacing: -1 },
     card: {
       backgroundColor: theme.surface,
-      borderRadius: 14,
+      borderRadius: 22,
       padding: 14,
       borderWidth: 1,
       borderColor: theme.border,
@@ -76,9 +76,10 @@ export default function AttemptsScreen() {
       hint={`Type the third-attempt goal. IronMath plans an opener, a second, and a third around ${formatWeight(goal, unit, rounding)}, with plate math for each.`}
       onDismiss={keypad.hide}
       footer={
-        <Keypad
-          open={keypad.open}
-          onOpenChange={keypad.setOpen}
+        <Numpad
+          mode="overlay"
+          visible={keypad.open}
+          onDone={keypad.hide}
           onKey={(key) => setRaw((c) => appendKey(c, key))}
           onClear={() => setRaw('')}
         />

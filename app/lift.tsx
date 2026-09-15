@@ -2,7 +2,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { BarbellSleeve } from '../src/components/BarbellSleeve';
-import { Keypad } from '../src/components/Keypad';
+import { LogSetSheet } from '../src/components/LogSetSheet';
+import { Numpad } from '../src/components/Numpad';
 import { Screen } from '../src/components/Screen';
 import { Segmented } from '../src/components/Segmented';
 import { useKeypad } from '../src/components/useKeypad';
@@ -11,12 +12,15 @@ import {
   barWeight,
   collarWeight,
   convertWeight,
+  entryLine,
   estimateOneRm,
   formatWeight,
   isLiftId,
+  liftStats,
   liftTitle,
   loadFromRpe,
   parseKeypad,
+  prCopy,
   rawForUnitChange,
   solveTargetLoad,
   type Unit,
@@ -41,8 +45,12 @@ export default function LiftScreen() {
   const setLiftUnit = useAppStore((state) => state.setLiftUnit);
   const setLiftReps = useAppStore((state) => state.setLiftReps);
   const setWarmupSeed = useAppStore((state) => state.setWarmupSeed);
+  const loadBias = useAppStore((state) => state.loadBias);
+  const log = useAppStore((state) => state.log);
   const [field, setField] = useState<'weight' | 'reps'>('weight');
   const [rpeRaw, setRpeRaw] = useState('8');
+  const [logOpen, setLogOpen] = useState(false);
+  const [logged, setLogged] = useState<string | null>(null);
   const keypad = useKeypad();
   const unit: Unit = lift?.unit ?? 'lb';
   const inventory = useInventoryFor(unit);
@@ -65,9 +73,11 @@ export default function LiftScreen() {
         bar,
         collars,
         inventory,
+        bias: loadBias,
       }),
-    [working, unit, bar, collars, inventory]
+    [working, unit, bar, collars, inventory, loadBias]
   );
+  const stats = useMemo(() => liftStats(log, id, unit), [log, id, unit]);
   const styles = useThemedStyles((theme) => ({
     hero: { gap: 4, marginBottom: space.md },
     heroHead: {
@@ -94,7 +104,7 @@ export default function LiftScreen() {
     field: {
       flex: 1,
       backgroundColor: theme.surface,
-      borderRadius: 16,
+      borderRadius: 22,
       borderWidth: 1,
       borderColor: theme.border,
       padding: 14,
@@ -104,7 +114,7 @@ export default function LiftScreen() {
     fieldValue: { color: theme.text, fontWeight: '800', fontSize: 22, marginTop: 4 },
     answer: {
       backgroundColor: theme.surface,
-      borderRadius: 16,
+      borderRadius: 22,
       borderWidth: 1,
       borderColor: theme.border,
       paddingHorizontal: 14,
@@ -127,13 +137,39 @@ export default function LiftScreen() {
     meta: { color: theme.muted, fontSize: 14, fontWeight: '600' },
     warmup: {
       backgroundColor: theme.surface,
-      borderRadius: 16,
+      borderRadius: 22,
       borderWidth: 1,
       borderColor: theme.border,
       paddingVertical: 16,
       alignItems: 'center',
     },
     warmupText: { color: theme.text, fontSize: 17, fontWeight: '700' },
+    logBtn: {
+      minHeight: 54,
+      borderRadius: 22,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.accent,
+    },
+    logLabel: { color: theme.accentText, fontSize: 17, fontWeight: '800' },
+    loggedNote: { color: theme.success, fontSize: 13, fontWeight: '700', textAlign: 'center' },
+    history: {
+      backgroundColor: theme.surface,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: theme.border,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      gap: 4,
+    },
+    historyKicker: {
+      color: theme.muted,
+      fontSize: 13,
+      fontWeight: '800',
+      letterSpacing: 0.6,
+      textTransform: 'uppercase',
+    },
+    historyLine: { color: theme.text, fontSize: 15, fontWeight: '700' },
   }));
 
   const switchUnit = (next: Unit) => {
@@ -152,9 +188,10 @@ export default function LiftScreen() {
       hint={`Type your ${liftTitle(id).toLowerCase()}. We load plates from it, estimate a max, and keep the number after you close the app.`}
       onDismiss={keypad.hide}
       footer={
-        <Keypad
-          open={keypad.open}
-          onOpenChange={keypad.setOpen}
+        <Numpad
+          mode="overlay"
+          visible={keypad.open}
+          onDone={keypad.hide}
           onKey={(key) => {
             if (field === 'weight') {
               setLiftWorking(id, appendKey(workingRaw, key));
@@ -239,6 +276,36 @@ export default function LiftScreen() {
 
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel="Log this set"
+        onPress={() => {
+          void tick('medium');
+          keypad.hide();
+          setLogOpen(true);
+        }}
+        style={styles.logBtn}
+      >
+        <Text style={styles.logLabel}>Log set</Text>
+      </Pressable>
+      {logged ? <Text style={styles.loggedNote}>{logged}</Text> : null}
+
+      {stats.sets > 0 ? (
+        <View style={styles.history}>
+          <Text style={styles.historyKicker}>Your {liftTitle(id).toLowerCase()} so far</Text>
+          {stats.lastEntry ? (
+            <Text style={styles.historyLine}>Last set {entryLine(stats.lastEntry, rounding)}</Text>
+          ) : null}
+          {stats.heaviestEntry ? (
+            <Text style={styles.meta}>Heaviest {entryLine(stats.heaviestEntry, rounding)}</Text>
+          ) : null}
+          <Text style={styles.meta}>
+            Best estimated max {formatWeight(stats.bestOneRm, unit, rounding)} over {stats.sets}{' '}
+            {stats.sets === 1 ? 'logged set' : 'logged sets'}
+          </Text>
+        </View>
+      ) : null}
+
+      <Pressable
+        accessibilityRole="button"
         accessibilityLabel="Open Warm-Up with this weight"
         onPress={() => {
           void tick('medium');
@@ -249,6 +316,18 @@ export default function LiftScreen() {
       >
         <Text style={styles.warmupText}>Warm up to this</Text>
       </Pressable>
+
+      <LogSetSheet
+        visible={logOpen}
+        weight={loaded.solution.loaded}
+        unit={unit}
+        liftId={id}
+        onClose={() => setLogOpen(false)}
+        onLogged={(entry, records) => {
+          const record = prCopy(records);
+          setLogged(record ?? `Logged ${entry.reps} reps at ${formatWeight(entry.weight, entry.unit, rounding)}.`);
+        }}
+      />
     </Screen>
   );
 }

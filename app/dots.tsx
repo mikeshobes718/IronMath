@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { Keypad } from '../src/components/Keypad';
+import { Numpad } from '../src/components/Numpad';
 import { Screen } from '../src/components/Screen';
 import { Segmented } from '../src/components/Segmented';
 import { useKeypad } from '../src/components/useKeypad';
@@ -53,7 +53,7 @@ export default function DotsScreen() {
     },
     field: {
       backgroundColor: theme.surface,
-      borderRadius: 16,
+      borderRadius: 22,
       borderWidth: 1,
       borderColor: theme.border,
       padding: 14,
@@ -64,7 +64,7 @@ export default function DotsScreen() {
     fieldValue: { color: theme.text, fontWeight: '800', fontSize: 22, marginTop: 4 },
     answer: {
       backgroundColor: theme.surface,
-      borderRadius: 16,
+      borderRadius: 22,
       borderWidth: 1,
       borderColor: theme.border,
       paddingHorizontal: 14,
@@ -91,12 +91,12 @@ export default function DotsScreen() {
   return (
     <Screen
       embedded
-      hint="Type bodyweight and your meet total. We score it so lighter and heavier lifters can compare."
       onDismiss={keypad.hide}
       footer={
-        <Keypad
-          open={keypad.open}
-          onOpenChange={keypad.setOpen}
+        <Numpad
+          mode="overlay"
+          visible={keypad.open}
+          onDone={keypad.hide}
           onKey={(key) => {
             if (field === 'bw') {
               setBwRaw((current) => appendKey(current, key));

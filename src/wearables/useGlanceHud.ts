@@ -10,6 +10,7 @@ export function useGlanceHud(): GlanceHud {
   const customBar = useAppStore((state) => state.customBar);
   const collarId = useAppStore((state) => state.collarId);
   const rounding = useAppStore((state) => state.rounding);
+  const loadBias = useAppStore((state) => state.loadBias);
   const convertRaw = useAppStore((state) => state.convertRaw);
   const convertFrom = useAppStore((state) => state.convertFrom);
   const inventory = useInventory();
@@ -29,7 +30,8 @@ export function useGlanceHud(): GlanceHud {
         rounding,
         convertRaw,
         convertFrom,
+        bias: loadBias,
       }),
-    [loadTargetRaw, loadInputUnit, gymUnit, bar, collars, inventory, rounding, convertRaw, convertFrom, gym.id]
+    [loadTargetRaw, loadInputUnit, gymUnit, bar, collars, inventory, rounding, convertRaw, convertFrom, loadBias, gym.id]
   );
 }

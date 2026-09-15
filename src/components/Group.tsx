@@ -1,17 +1,19 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { cardShadow, radius } from '../theme';
+import { useThemeColors } from '../theme/ThemeRoot';
 import { useThemedStyles } from '../theme/useThemedStyles';
 
 export function GroupHeader({ children }: { children: ReactNode }) {
   const styles = useThemedStyles((theme) => ({
     header: {
-      color: theme.muted,
+      color: theme.dim,
       fontSize: 12,
       fontWeight: '800' as const,
-      letterSpacing: 0.7,
+      letterSpacing: 0.8,
       textTransform: 'uppercase' as const,
-      marginTop: 8,
-      marginLeft: 4,
+      marginTop: 10,
+      marginLeft: 6,
     },
   }));
   return <Text style={styles.header}>{children}</Text>;
@@ -25,23 +27,24 @@ export function GroupFooter({ children }: { children: ReactNode }) {
       lineHeight: 17,
       marginTop: 8,
       marginBottom: 4,
-      marginHorizontal: 4,
+      marginHorizontal: 6,
     },
   }));
   return <Text style={styles.footer}>{children}</Text>;
 }
 
 export function Group({ children }: { children: ReactNode }) {
-  const styles = useThemedStyles((theme) => ({
+  const theme = useThemeColors();
+  const styles = useThemedStyles((t) => ({
     group: {
-      backgroundColor: theme.surface,
-      borderRadius: 16,
+      backgroundColor: t.surface,
+      borderRadius: radius.lg,
       borderWidth: 1,
-      borderColor: theme.border,
+      borderColor: t.border,
       overflow: 'hidden' as const,
     },
   }));
-  return <View style={styles.group}>{children}</View>;
+  return <View style={[styles.group, cardShadow(theme.bg, 0.4)]}>{children}</View>;
 }
 
 export function GroupRow({
@@ -53,8 +56,8 @@ export function GroupRow({
 }) {
   const styles = useThemedStyles((theme) => ({
     row: {
-      paddingHorizontal: 14,
-      paddingVertical: 13,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.border,
     },

@@ -1,6 +1,6 @@
 import { eachSideCopy } from './breakdown';
 import { missInputCopy, solveTargetLoad } from './fitbod';
-import type { PlateStackItem, InventoryCounts } from './solve';
+import type { PlateStackItem, InventoryCounts, LoadBias } from './solve';
 import { convertWeight, formatWeight, parseKeypad, roundGymLoad, type Rounding, type Unit } from './units';
 
 export const GYM_STEP = 2.5;
@@ -15,6 +15,7 @@ export type GlanceInput = {
   rounding: Rounding;
   convertRaw: string;
   convertFrom: Unit;
+  bias?: LoadBias;
 };
 
 export type GlanceHud = {
@@ -51,6 +52,7 @@ export function buildGlanceHud(input: GlanceInput): GlanceHud {
     bar: input.bar,
     collars: input.collars,
     inventory: input.inventory,
+    bias: input.bias,
   });
   const otherUnit: Unit = input.gymUnit === 'kg' ? 'lb' : 'kg';
   const otherLoaded = input.gymUnit === 'kg' ? result.loadedLb : result.loadedKg;

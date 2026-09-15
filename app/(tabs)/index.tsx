@@ -1,10 +1,11 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useRouter, type Href } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { BarbellSleeve } from '../../src/components/BarbellSleeve';
 import { barPickerOptions, barPickerValue, collarPickerOptions, collarPickerValue } from '../../src/components/equipmentCopy';
-import { Keypad } from '../../src/components/Keypad';
+import { LogSetSheet } from '../../src/components/LogSetSheet';
+import { Numpad } from '../../src/components/Numpad';
 import { OpenOnGlassesButton } from '../../src/components/OpenOnGlassesButton';
 import { PickerRow } from '../../src/components/PickerRow';
 import { Screen } from '../../src/components/Screen';
@@ -14,17 +15,22 @@ import { tick } from '../../src/haptics/feedback';
 import {
   appendKey,
   barWeight,
+  bumpTargetRaw,
   collarWeight,
   formatRestClock,
   formatWeight,
+  liftTitle,
   missInputCopy,
   parseKeypad,
+  prCopy,
   rawForUnitChange,
   solveTargetLoad,
+  targetLoadNeighbors,
+  type LoadNeighbor,
   type Unit,
 } from '../../src/engine';
 import { useActiveGym, useAppStore, useInventory } from '../../src/store/useAppStore';
-import { space } from '../../src/theme';
+import { cardShadow, glowShadow, radius, space } from '../../src/theme';
 import { useThemeColors } from '../../src/theme/ThemeRoot';
 import { useThemedStyles } from '../../src/theme/useThemedStyles';
 import { useRestTimer } from '../../src/wearables/restTimer';
@@ -34,11 +40,14 @@ const GYM_PLATE_OPTIONS: Array<{ id: Unit; label: string }> = [
   { id: 'lb', label: 'Pounds. US plates.' },
 ];
 
+const BUMP_STEP = 2.5;
+
 export default function LoadBarScreen() {
   const router = useRouter();
   const theme = useThemeColors();
   const gymUnit = useAppStore((state) => state.unit);
   const rounding = useAppStore((state) => state.rounding);
+  const loadBias = useAppStore((state) => state.loadBias);
   const barId = useAppStore((state) => state.barId);
   const customBar = useAppStore((state) => state.customBar);
   const collarId = useAppStore((state) => state.collarId);
@@ -54,96 +63,126 @@ export default function LoadBarScreen() {
   const setTargetRaw = useAppStore((state) => state.setLoadTargetRaw);
   const rest = useRestTimer();
   const keypad = useKeypad();
-  const styles = useThemedStyles((theme) => ({
-    main: { flex: 1 },
-    mainContent: { flexGrow: 1 },
-    page: { paddingTop: 4, paddingBottom: 20 },
-    hero: { gap: 4, marginBottom: space.lg },
+  const [logOpen, setLogOpen] = useState(false);
+  const [logged, setLogged] = useState<string | null>(null);
+
+  const styles = useThemedStyles((t) => ({
+    content: { paddingBottom: 28 },
+    hero: { gap: 6, marginBottom: space.md },
     heroHead: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: 12,
     },
-    unitSeg: { width: 128 },
+    unitSeg: { width: 124 },
     kicker: {
-      color: theme.muted,
+      color: t.muted,
       fontSize: 13,
       fontWeight: '800',
       letterSpacing: 0.6,
       textTransform: 'uppercase',
     },
+    heroRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    inputWrap: { flex: 1, borderBottomWidth: 2, paddingBottom: 4 },
+    inputIdle: { borderBottomColor: 'transparent' },
+    inputActive: { borderBottomColor: t.accent },
     input: {
-      color: theme.text,
-      fontSize: 52,
+      color: t.text,
+      fontSize: 56,
       fontWeight: '800',
-      letterSpacing: -1.6,
+      letterSpacing: -1.8,
     },
+    bump: {
+      width: 50,
+      height: 50,
+      borderRadius: 25,
+      backgroundColor: t.card,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    bumpOff: { opacity: 0.35 },
+    bumpText: { color: t.text, fontSize: 24, fontWeight: '700', lineHeight: 28 },
+
     answer: {
-      backgroundColor: theme.surface,
-      borderRadius: 16,
+      backgroundColor: t.surface,
+      borderRadius: radius.xl,
       borderWidth: 1,
-      borderColor: theme.border,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
+      borderColor: t.border,
+      paddingHorizontal: 18,
+      paddingVertical: 18,
       gap: 4,
-      marginBottom: 20,
+      marginBottom: 12,
     },
-    barCard: { marginBottom: 20 },
     answerKicker: {
-      color: theme.accent,
+      color: t.accent,
       fontSize: 13,
       fontWeight: '800',
       letterSpacing: 0.6,
       textTransform: 'uppercase',
     },
     answerValue: {
-      color: theme.accent,
-      fontSize: 40,
+      color: t.accent,
+      fontSize: 44,
       fontWeight: '800',
-      letterSpacing: -1.2,
+      letterSpacing: -1.4,
     },
-    answerOther: { color: theme.muted, fontSize: 15, fontWeight: '600' },
+    answerOther: { color: t.muted, fontSize: 15, fontWeight: '600' },
     off: { fontSize: 15, fontWeight: '800', marginTop: 2 },
-    offExact: { color: theme.success },
-    offMiss: { color: theme.danger },
-    pickers: {
-      backgroundColor: theme.surface,
-      borderRadius: 16,
+    offExact: { color: t.success },
+    offMiss: { color: t.danger },
+
+    nearby: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+    near: {
+      flex: 1,
+      backgroundColor: t.card,
+      borderRadius: radius.lg,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      gap: 2,
+      minHeight: 58,
+      justifyContent: 'center',
+    },
+    nearLabel: { color: t.dim, fontSize: 11, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase' },
+    nearValue: { color: t.text, fontSize: 17, fontWeight: '800' },
+
+    barCard: { marginBottom: 16, borderRadius: radius.xl, overflow: 'hidden' },
+
+    logBtn: {
+      minHeight: 56,
+      borderRadius: radius.pill,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: t.accent,
+      marginBottom: 10,
+    },
+    logLabel: { color: t.accentText, fontSize: 17, fontWeight: '800' },
+    loggedNote: { color: t.success, fontSize: 13, fontWeight: '700', marginBottom: 10, textAlign: 'center' },
+
+    quickRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+    quick: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      minHeight: 48,
+      borderRadius: radius.pill,
+      backgroundColor: t.surface,
       borderWidth: 1,
-      borderColor: theme.border,
+      borderColor: t.border,
+      paddingHorizontal: 12,
+    },
+    quickLabel: { color: t.text, fontSize: 15, fontWeight: '700' },
+    quickLive: { color: t.accent, fontVariant: ['tabular-nums' as const] },
+
+    pickers: {
+      backgroundColor: t.surface,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: t.border,
       overflow: 'hidden',
     },
-    convert: {
-      flexDirection: 'row' as const,
-      alignItems: 'center' as const,
-      justifyContent: 'space-between' as const,
-      backgroundColor: theme.surface,
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: theme.border,
-      paddingHorizontal: 14,
-      paddingVertical: 14,
-      marginBottom: 20,
-      minHeight: 52,
-    },
-    convertLabel: {
-      color: theme.text,
-      fontSize: 17,
-      fontWeight: '800' as const,
-    },
-    restMeta: {
-      flexDirection: 'row' as const,
-      alignItems: 'center' as const,
-      gap: 8,
-    },
-    restTime: {
-      color: theme.muted,
-      fontSize: 17,
-      fontWeight: '800' as const,
-      fontVariant: ['tabular-nums' as const],
-    },
-    restTimeLive: { color: theme.accent },
   }));
 
   const bar = barWeight(barId, gymUnit, customBar);
@@ -158,12 +197,21 @@ export default function LoadBarScreen() {
         bar,
         collars,
         inventory,
+        bias: loadBias,
       }),
-    [target, inputUnit, gymUnit, bar, collars, inventory]
+    [target, inputUnit, gymUnit, bar, collars, inventory, loadBias]
+  );
+  const neighbors = useMemo(
+    () =>
+      result.solution.exact
+        ? { lighter: null, heavier: null }
+        : targetLoadNeighbors({ target, inputUnit, gymUnit, bar, collars, inventory, bias: loadBias }),
+    [result.solution.exact, target, inputUnit, gymUnit, bar, collars, inventory, loadBias]
   );
   const off = missInputCopy(result.deltaInput, inputUnit);
   const otherUnit: Unit = gymUnit === 'kg' ? 'lb' : 'kg';
   const otherLoaded = gymUnit === 'kg' ? result.loadedLb : result.loadedKg;
+  const showNearby = !result.solution.exact && (neighbors.lighter !== null || neighbors.heavier !== null);
 
   const switchInputUnit = (next: Unit) => {
     if (next === inputUnit) {
@@ -175,100 +223,147 @@ export default function LoadBarScreen() {
     setInputUnit(next);
   };
 
+  const bump = (delta: number) => {
+    void tick('light');
+    setLogged(null);
+    setTargetRaw(bumpTargetRaw(targetRaw, delta));
+  };
+
+  const snapTo = (neighbor: LoadNeighbor) => {
+    void tick('medium');
+    setLogged(null);
+    setTargetRaw(String(Number(neighbor.inInputUnit.toFixed(1))));
+  };
+
   return (
     <Screen
       title="Load"
       subtitle={gym.name}
-      hint="Type the weight from your program or Fitbod. We pick the closest plates your gym has. Open on glasses sends this set to the Display."
       scroll={false}
+      glow
       onDismiss={keypad.hide}
       footer={
-        <Keypad
-          aboveTabBar
-          open={keypad.open}
-          onOpenChange={keypad.setOpen}
-          onKey={(key) => setTargetRaw(appendKey(targetRaw, key))}
+        <Numpad
+          mode="overlay"
+          visible={keypad.open}
+          onDone={keypad.hide}
+          onKey={(key) => {
+            setLogged(null);
+            setTargetRaw(appendKey(targetRaw, key));
+          }}
           onClear={() => setTargetRaw('')}
         />
       }
     >
       <ScrollView
-        style={styles.main}
-        contentContainerStyle={styles.mainContent}
+        contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         onScrollBeginDrag={keypad.hide}
         showsVerticalScrollIndicator={false}
-        showsHorizontalScrollIndicator={false}
       >
-        <Pressable
-          style={styles.page}
-          onPress={() => {
-            void tick('light');
-            keypad.hide();
-          }}
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Target weight. Opens the keypad."
-            onPress={() => {
-              void tick('light');
-              keypad.show();
-            }}
-            style={styles.hero}
-          >
-            <View style={styles.heroHead}>
-              <Text style={styles.kicker}>Target</Text>
-              <View style={styles.unitSeg}>
-                <Segmented
-                  value={inputUnit}
-                  options={[
-                    { value: 'lb', label: 'LB' },
-                    { value: 'kg', label: 'KG' },
-                  ]}
-                  onChange={switchInputUnit}
-                />
-              </View>
+        <View style={styles.hero}>
+          <View style={styles.heroHead}>
+            <Text style={styles.kicker}>Target</Text>
+            <View style={styles.unitSeg}>
+              <Segmented
+                value={inputUnit}
+                options={[
+                  { value: 'lb', label: 'LB' },
+                  { value: 'kg', label: 'KG' },
+                ]}
+                onChange={switchInputUnit}
+              />
             </View>
-            <Text style={styles.input}>{targetRaw || '0'}</Text>
-          </Pressable>
-
-          <View style={styles.answer}>
-            <Text style={styles.answerKicker}>Load on the bar</Text>
-            <Text style={styles.answerValue}>{formatWeight(result.solution.loaded, gymUnit, rounding)}</Text>
-            <Text style={styles.answerOther}>{formatWeight(otherLoaded, otherUnit, rounding)}</Text>
-            <Text style={[styles.off, off === 'Exact' ? styles.offExact : styles.offMiss]}>{off}</Text>
           </View>
+          <View style={styles.heroRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Target weight ${targetRaw || 0} ${inputUnit}. Opens the number pad.`}
+              onPress={() => {
+                void tick('light');
+                keypad.show();
+              }}
+              style={[styles.inputWrap, keypad.open ? styles.inputActive : styles.inputIdle]}
+            >
+              <Text style={styles.input}>{targetRaw || '0'}</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Down ${BUMP_STEP} ${inputUnit}`}
+              disabled={target <= 0}
+              hitSlop={6}
+              onPress={() => bump(-BUMP_STEP)}
+              style={[styles.bump, target <= 0 && styles.bumpOff]}
+            >
+              <Text style={styles.bumpText}>−</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Up ${BUMP_STEP} ${inputUnit}`}
+              hitSlop={6}
+              onPress={() => bump(BUMP_STEP)}
+              style={styles.bump}
+            >
+              <Text style={styles.bumpText}>+</Text>
+            </Pressable>
+          </View>
+        </View>
 
-          <OpenOnGlassesButton view="load" onOpen={keypad.hide} />
+        <View style={[styles.answer, cardShadow(theme.bg, 0.35)]}>
+          <Text style={styles.answerKicker}>Load on the bar</Text>
+          <Text style={styles.answerValue}>{formatWeight(result.solution.loaded, gymUnit, rounding)}</Text>
+          <Text style={styles.answerOther}>{formatWeight(otherLoaded, otherUnit, rounding)}</Text>
+          <Text style={[styles.off, off === 'Exact' ? styles.offExact : styles.offMiss]}>{off}</Text>
+        </View>
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Convert LB and KG"
-            onPress={() => {
-              void tick('light');
-              keypad.hide();
-              router.push('/convert');
-            }}
-            style={styles.convert}
-          >
-            <Text style={styles.convertLabel}>Convert LB and KG</Text>
-            <FontAwesome name="chevron-right" size={12} color={theme.dim} />
-          </Pressable>
+        {showNearby ? (
+          <View style={styles.nearby}>
+            {neighbors.lighter ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Next weight down, ${formatWeight(neighbors.lighter.loaded, gymUnit, rounding)}`}
+                onPress={() => snapTo(neighbors.lighter!)}
+                style={styles.near}
+              >
+                <Text style={styles.nearLabel}>Next down</Text>
+                <Text style={styles.nearValue}>{formatWeight(neighbors.lighter.loaded, gymUnit, rounding)}</Text>
+              </Pressable>
+            ) : null}
+            {neighbors.heavier ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Next weight up, ${formatWeight(neighbors.heavier.loaded, gymUnit, rounding)}`}
+                onPress={() => snapTo(neighbors.heavier!)}
+                style={styles.near}
+              >
+                <Text style={styles.nearLabel}>Next up</Text>
+                <Text style={styles.nearValue}>{formatWeight(neighbors.heavier.loaded, gymUnit, rounding)}</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Gym glance for glasses and lock screen"
-            onPress={() => {
-              void tick('light');
-              keypad.hide();
-              router.push('/glance' as Href);
-            }}
-            style={styles.convert}
-          >
-            <Text style={styles.convertLabel}>Gym glance</Text>
-            <FontAwesome name="chevron-right" size={12} color={theme.dim} />
-          </Pressable>
+        <View style={styles.barCard}>
+          <BarbellSleeve plates={result.solution.plates} plateTheme={plateTheme} />
+        </View>
 
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Log this set"
+          onPress={() => {
+            void tick('medium');
+            keypad.hide();
+            setLogOpen(true);
+          }}
+          style={[styles.logBtn, glowShadow(theme.accent, 0.4)]}
+        >
+          <Text style={styles.logLabel}>Log set</Text>
+        </Pressable>
+        {logged ? <Text style={styles.loggedNote}>{logged}</Text> : null}
+
+        <OpenOnGlassesButton view="load" filled onOpen={keypad.hide} />
+
+        <View style={styles.quickRow}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Rest timer, ${formatRestClock(rest.remainingSec)}`}
@@ -277,44 +372,61 @@ export default function LoadBarScreen() {
               keypad.hide();
               router.push('/rest' as Href);
             }}
-            style={styles.convert}
+            style={styles.quick}
           >
-            <Text style={styles.convertLabel}>Rest timer</Text>
-            <View style={styles.restMeta}>
-              <Text style={[styles.restTime, rest.phase === 'running' && styles.restTimeLive]}>
-                {formatRestClock(rest.remainingSec)}
-              </Text>
-              <FontAwesome name="chevron-right" size={12} color={theme.dim} />
-            </View>
+            <FontAwesome name="clock-o" size={15} color={rest.phase === 'running' ? theme.accent : theme.muted} />
+            <Text style={[styles.quickLabel, rest.phase === 'running' && styles.quickLive]}>
+              {formatRestClock(rest.remainingSec)}
+            </Text>
           </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Gym glance for glasses and lock screen"
+            onPress={() => {
+              void tick('light');
+              keypad.hide();
+              router.push('/glance' as Href);
+            }}
+            style={styles.quick}
+          >
+            <FontAwesome name="eye" size={15} color={theme.muted} />
+            <Text style={styles.quickLabel}>Glance</Text>
+          </Pressable>
+        </View>
 
-          <View style={styles.barCard}>
-            <BarbellSleeve plates={result.solution.plates} plateTheme={plateTheme} />
-          </View>
-
-          <View style={styles.pickers}>
-            <PickerRow
-              label="Bar"
-              value={barPickerValue(barId, gymUnit, customBar)}
-              options={barPickerOptions(gymUnit, customBar)}
-              onSelect={setBarId}
-            />
-            <PickerRow
-              label="Collars"
-              value={collarPickerValue(collarId, gymUnit)}
-              options={collarPickerOptions(gymUnit)}
-              onSelect={setCollarId}
-            />
-            <PickerRow
-              label="Gym plates"
-              value={gymUnit === 'kg' ? 'Kilos' : 'Pounds'}
-              options={GYM_PLATE_OPTIONS}
-              onSelect={setUnit}
-              last
-            />
-          </View>
-        </Pressable>
+        <View style={styles.pickers}>
+          <PickerRow
+            label="Bar"
+            value={barPickerValue(barId, gymUnit, customBar)}
+            options={barPickerOptions(gymUnit, customBar)}
+            onSelect={setBarId}
+          />
+          <PickerRow
+            label="Collars"
+            value={collarPickerValue(collarId, gymUnit)}
+            options={collarPickerOptions(gymUnit)}
+            onSelect={setCollarId}
+          />
+          <PickerRow
+            label="Gym plates"
+            value={gymUnit === 'kg' ? 'Kilos' : 'Pounds'}
+            options={GYM_PLATE_OPTIONS}
+            onSelect={setUnit}
+            last
+          />
+        </View>
       </ScrollView>
+
+      <LogSetSheet
+        visible={logOpen}
+        weight={result.solution.loaded}
+        unit={gymUnit}
+        onClose={() => setLogOpen(false)}
+        onLogged={(entry, records) => {
+          const record = prCopy(records);
+          setLogged(record ?? `Logged ${liftTitle(entry.liftId)} ${entry.reps} reps.`);
+        }}
+      />
     </Screen>
   );
 }

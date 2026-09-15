@@ -18,7 +18,7 @@ export function OpenOnGlassesButton({
   const styles = useThemedStyles((theme) => ({
     action: {
       minHeight: 54,
-      borderRadius: 14,
+      borderRadius: 999,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
       backgroundColor: theme.accent,
@@ -28,7 +28,7 @@ export function OpenOnGlassesButton({
     },
     ghost: {
       minHeight: 54,
-      borderRadius: 14,
+      borderRadius: 999,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,
       backgroundColor: theme.surface,

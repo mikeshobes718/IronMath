@@ -2,6 +2,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { ActionSheetIOS, Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { tick } from '../haptics/feedback';
 import { useResolvedScheme, useThemeColors } from '../theme/ThemeRoot';
+import { radius } from '../theme';
 import { useThemedStyles } from '../theme/useThemedStyles';
 
 export type PickerOption<T extends string> = {
@@ -63,9 +64,9 @@ export function PickerRow<T extends string>({ label, value, options, onSelect, l
       alignItems: 'center' as const,
       justifyContent: 'space-between' as const,
       gap: 12,
-      paddingHorizontal: 14,
-      paddingVertical: 14,
-      minHeight: 52,
+      paddingHorizontal: 16,
+      paddingVertical: 15,
+      minHeight: 54,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: colors.border,
     },

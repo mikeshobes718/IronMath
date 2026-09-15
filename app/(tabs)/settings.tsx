@@ -1,10 +1,10 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useEffect, useState } from 'react';
-import { Keyboard, Pressable, Switch, Text, TextInput, View } from 'react-native';
+import { Alert, Keyboard, Pressable, Switch, Text, TextInput, View } from 'react-native';
 import { Group, GroupFooter, GroupHeader, GroupRow } from '../../src/components/Group';
 import { NumpadDoneBar, numpadAccessoryProps } from '../../src/components/NumpadDoneBar';
 import { Screen } from '../../src/components/Screen';
-import { platesForUnit } from '../../src/engine';
+import { platesForUnit, WARMUP_SCHEMES } from '../../src/engine';
 import { tick } from '../../src/haptics/feedback';
 import { useActiveGym, useAppStore, useInventory } from '../../src/store/useAppStore';
 import { useThemeColors } from '../../src/theme/ThemeRoot';
@@ -31,6 +31,14 @@ export default function SettingsScreen() {
   const resetGyms = useAppStore((state) => state.resetGyms);
   const appearance = useAppStore((state) => state.appearance);
   const setAppearance = useAppStore((state) => state.setAppearance);
+  const loadBias = useAppStore((state) => state.loadBias);
+  const setLoadBias = useAppStore((state) => state.setLoadBias);
+  const warmupSchemeId = useAppStore((state) => state.warmupSchemeId);
+  const setWarmupScheme = useAppStore((state) => state.setWarmupScheme);
+  const autoRestOnLog = useAppStore((state) => state.autoRestOnLog);
+  const setAutoRestOnLog = useAppStore((state) => state.setAutoRestOnLog);
+  const logCount = useAppStore((state) => state.log.length);
+  const clearLog = useAppStore((state) => state.clearLog);
   const plates = platesForUnit(unit);
   const styles = useSettingsStyles();
   const theme = useThemeColors();
@@ -60,7 +68,6 @@ export default function SettingsScreen() {
     <Screen
       title="Settings"
       subtitle="Gyms, plates, and feel"
-      hint="Gym plates, how the app looks, and feel. Load matches any target to these plates."
     >
       <GroupHeader>Appearance</GroupHeader>
       <Group>
@@ -90,6 +97,44 @@ export default function SettingsScreen() {
       </Group>
       <GroupFooter>How many digits after the decimal on weight labels. The solver still uses exact plate math.</GroupFooter>
 
+      <GroupHeader>When the weight does not fit</GroupHeader>
+      <Group>
+        <Choice
+          label="Closest"
+          detail="Whichever bar is nearer, over or under."
+          selected={loadBias === 'nearest'}
+          onPress={() => setLoadBias('nearest')}
+        />
+        <Choice
+          label="Never go over"
+          detail="Always round down. Safe for singles and for a program you follow to the pound."
+          selected={loadBias === 'down'}
+          onPress={() => setLoadBias('down')}
+        />
+        <Choice
+          label="Never come in light"
+          detail="Always round up. For when the number on the card is a floor."
+          selected={loadBias === 'up'}
+          onPress={() => setLoadBias('up')}
+          last
+        />
+      </Group>
+      <GroupFooter>Applies to Load, Warm-Up, and the percentage chart.</GroupFooter>
+
+      <GroupHeader>Warm-up ramp</GroupHeader>
+      <Group>
+        {WARMUP_SCHEMES.map((scheme, index) => (
+          <Choice
+            key={scheme.id}
+            label={scheme.name}
+            detail={scheme.detail}
+            selected={warmupSchemeId === scheme.id}
+            onPress={() => setWarmupScheme(scheme.id)}
+            last={index === WARMUP_SCHEMES.length - 1}
+          />
+        ))}
+      </Group>
+
       <GroupHeader>Plate colors</GroupHeader>
       <Group>
         <Choice
@@ -110,7 +155,14 @@ export default function SettingsScreen() {
       <GroupHeader>Feedback</GroupHeader>
       <Group>
         <ToggleRow label="Haptics" detail="Tap vibration on keys and switches" on={hapticsEnabled} onChange={setHaptics} />
-        <ToggleRow label="Audio ticks" detail="Extra click on web, extra tap on phone" on={audioEnabled} onChange={setAudio} last />
+        <ToggleRow label="Audio ticks" detail="Extra click on web, extra tap on phone" on={audioEnabled} onChange={setAudio} />
+        <ToggleRow
+          label="Rest starts after a set"
+          detail="Log a set and the rest timer starts on its own"
+          on={autoRestOnLog}
+          onChange={setAutoRestOnLog}
+          last
+        />
       </Group>
 
       <GroupHeader>Custom bar ({unit === 'lb' ? 'LB' : 'KG'})</GroupHeader>
@@ -229,6 +281,28 @@ export default function SettingsScreen() {
       >
         <Text style={styles.resetText}>Reset gym presets</Text>
       </Pressable>
+
+      {logCount > 0 ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Delete all ${logCount} logged sets`}
+          onPress={() => {
+            Keyboard.dismiss();
+            void tick('warn');
+            Alert.alert(
+              'Delete your whole log?',
+              `${logCount} logged ${logCount === 1 ? 'set' : 'sets'} will be gone. This cannot be undone. Export from the Log tab first if you want a copy.`,
+              [
+                { text: 'Keep', style: 'cancel' },
+                { text: 'Delete all', style: 'destructive', onPress: () => clearLog() },
+              ]
+            );
+          }}
+          style={styles.reset}
+        >
+          <Text style={styles.resetText}>Clear set log ({logCount})</Text>
+        </Pressable>
+      ) : null}
       <NumpadDoneBar />
     </Screen>
   );
@@ -487,7 +561,7 @@ function useSettingsStyles() {
     justifyContent: 'space-between',
     gap: 12,
     backgroundColor: theme.surface,
-    borderRadius: 16,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: theme.border,
     paddingHorizontal: 14,

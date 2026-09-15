@@ -74,8 +74,10 @@ export function platesForUnit(unit: Unit): PlateSpec[] {
   return unit === 'lb' ? LB_PLATES : KG_PLATES;
 }
 
+const PLATE_INDEX: Map<string, PlateSpec> = new Map(ALL_PLATES.map((plate) => [plate.id, plate]));
+
 export function plateById(id: string): PlateSpec | undefined {
-  return ALL_PLATES.find((plate) => plate.id === id);
+  return PLATE_INDEX.get(id);
 }
 
 export function barWeight(presetId: string, unit: Unit, customWeight: number): number {

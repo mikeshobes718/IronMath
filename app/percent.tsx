@@ -1,18 +1,22 @@
+import { useMemo } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { Keypad } from '../src/components/Keypad';
+import { Numpad } from '../src/components/Numpad';
 import { Screen } from '../src/components/Screen';
 import { Segmented } from '../src/components/Segmented';
 import { useKeypad } from '../src/components/useKeypad';
 import {
   appendKey,
+  barWeight,
+  collarWeight,
+  convertWeight,
   formatWeight,
+  loadablePercentChart,
   parseKeypad,
-  percentChart,
   rawForUnitChange,
   type Unit,
 } from '../src/engine';
 import { tick } from '../src/haptics/feedback';
-import { useAppStore } from '../src/store/useAppStore';
+import { useAppStore, useInventoryFor } from '../src/store/useAppStore';
 import { space } from '../src/theme';
 import { useThemedStyles } from '../src/theme/useThemedStyles';
 
@@ -22,9 +26,20 @@ export default function PercentScreen() {
   const unit = useAppStore((state) => state.percentUnit);
   const setPercentRaw = useAppStore((state) => state.setPercentRaw);
   const setPercentUnit = useAppStore((state) => state.setPercentUnit);
+  const gymUnit = useAppStore((state) => state.unit);
+  const loadBias = useAppStore((state) => state.loadBias);
+  const barId = useAppStore((state) => state.barId);
+  const customBarGym = useAppStore((state) => state.customBar);
+  const collarId = useAppStore((state) => state.collarId);
+  const inventory = useInventoryFor(unit);
   const keypad = useKeypad();
   const oneRm = parseKeypad(raw);
-  const rows = percentChart(oneRm);
+  const bar = barWeight(barId, unit, convertWeight(customBarGym, gymUnit, unit));
+  const collars = collarWeight(collarId, unit);
+  const rows = useMemo(
+    () => loadablePercentChart({ oneRm, bar, collars, unit, inventory, bias: loadBias }),
+    [oneRm, bar, collars, unit, inventory, loadBias]
+  );
   const styles = useThemedStyles((theme) => ({
     hero: { gap: 4, marginBottom: space.md },
     heroHead: {
@@ -49,7 +64,7 @@ export default function PercentScreen() {
     },
     table: {
       backgroundColor: theme.surface,
-      borderRadius: 16,
+      borderRadius: 22,
       borderWidth: 1,
       borderColor: theme.border,
       overflow: 'hidden' as const,
@@ -63,8 +78,11 @@ export default function PercentScreen() {
       borderBottomColor: theme.border,
     },
     rowLast: { borderBottomWidth: 0 },
-    pct: { color: theme.muted, fontSize: 15, fontWeight: '700' },
+    pct: { color: theme.muted, fontSize: 15, fontWeight: '700', width: 46 },
+    right: { alignItems: 'flex-end' as const, gap: 2 },
     weight: { color: theme.text, fontSize: 17, fontWeight: '800' },
+    loadable: { color: theme.muted, fontSize: 12, fontWeight: '700' },
+    loadableOff: { color: theme.accent },
   }));
 
   const switchUnit = (next: Unit) => {
@@ -80,12 +98,12 @@ export default function PercentScreen() {
   return (
     <Screen
       embedded
-      hint="Type a one-rep max. We show 50 to 100 percent. This number stays after you close the app."
       onDismiss={keypad.hide}
       footer={
-        <Keypad
-          open={keypad.open}
-          onOpenChange={keypad.setOpen}
+        <Numpad
+          mode="overlay"
+          visible={keypad.open}
+          onDone={keypad.hide}
           onKey={(key) => setPercentRaw(appendKey(raw, key))}
           onClear={() => setPercentRaw('')}
         />
@@ -117,9 +135,21 @@ export default function PercentScreen() {
       </Pressable>
       <View style={styles.table}>
         {rows.map((row, index) => (
-          <View key={row.percent} style={[styles.row, index === rows.length - 1 && styles.rowLast]}>
+          <View
+            key={row.percent}
+            accessible
+            accessibilityLabel={`${row.percent} percent is ${formatWeight(row.weight, unit, rounding)}.${
+              row.exact ? '' : ` Closest bar is ${formatWeight(row.loaded, unit, rounding)}.`
+            }`}
+            style={[styles.row, index === rows.length - 1 && styles.rowLast]}
+          >
             <Text style={styles.pct}>{row.percent}%</Text>
-            <Text style={styles.weight}>{formatWeight(row.weight, unit, rounding)}</Text>
+            <View style={styles.right}>
+              <Text style={styles.weight}>{formatWeight(row.weight, unit, rounding)}</Text>
+              <Text style={[styles.loadable, !row.exact && styles.loadableOff]}>
+                {row.exact ? 'Loads exactly' : `Bar: ${formatWeight(row.loaded, unit, rounding)}`}
+              </Text>
+            </View>
           </View>
         ))}
       </View>

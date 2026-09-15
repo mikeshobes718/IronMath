@@ -1,5 +1,7 @@
 import { Pressable, Text, View } from 'react-native';
 import { tick } from '../haptics/feedback';
+import { glowShadow, radius } from '../theme';
+import { useThemeColors } from '../theme/ThemeRoot';
 import { useThemedStyles } from '../theme/useThemedStyles';
 
 type Option<T extends string> = { value: T; label: string };
@@ -11,30 +13,31 @@ type Props<T extends string> = {
 };
 
 export function Segmented<T extends string>({ value, options, onChange }: Props<T>) {
-  const styles = useThemedStyles((theme) => ({
+  const theme = useThemeColors();
+  const styles = useThemedStyles((t) => ({
     wrap: {
       flexDirection: 'row' as const,
-      backgroundColor: theme.surface,
-      borderRadius: 12,
+      backgroundColor: t.card,
+      borderRadius: radius.pill,
       padding: 3,
       gap: 3,
     },
     item: {
       flex: 1,
-      paddingVertical: 8,
-      borderRadius: 9,
+      paddingVertical: 9,
+      borderRadius: radius.pill,
       alignItems: 'center' as const,
     },
     active: {
-      backgroundColor: theme.accent,
+      backgroundColor: t.accent,
     },
     label: {
-      color: theme.muted,
+      color: t.muted,
       fontSize: 14,
       fontWeight: '700' as const,
     },
     activeLabel: {
-      color: theme.accentText,
+      color: t.accentText,
     },
   }));
   return (
@@ -50,7 +53,7 @@ export function Segmented<T extends string>({ value, options, onChange }: Props<
                 onChange(option.value);
               }
             }}
-            style={[styles.item, active && styles.active]}
+            style={[styles.item, active && styles.active, active && glowShadow(theme.accent, 0.45)]}
           >
             <Text style={[styles.label, active && styles.activeLabel]}>{option.label}</Text>
           </Pressable>

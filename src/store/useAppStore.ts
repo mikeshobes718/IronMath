@@ -3,24 +3,34 @@ import { useEffect, useRef, useState } from 'react';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import {
+  appendEntry,
   applyCustomRest,
   BAR_PRESETS,
   clampRestDuration,
   customRestLooksComplete,
   DEFAULT_CUSTOM_REST_SEC,
   DEFAULT_REST_SEC,
+  DEFAULT_WARMUP_SCHEME,
   defaultGyms,
   defaultWorking,
   formatRestClock,
   isRestPreset,
+  isWarmupSchemeId,
   platesForUnit,
   remainingFromEnd,
+  removeEntry,
+  sanitizeLog,
+  sanitizeSleeve,
   type CollarId,
   type GymProfile,
   type LiftId,
+  type LoadBias,
+  type PlateStackItem,
   type PlateTheme,
   type Rounding,
+  type SetEntry,
   type Unit,
+  type WarmupSchemeId,
 } from '../engine';
 import type { AppearanceMode } from '../theme';
 
@@ -53,6 +63,8 @@ export interface AppState {
   collarId: CollarId;
   plateTheme: PlateTheme;
   rounding: Rounding;
+  loadBias: LoadBias;
+  warmupSchemeId: WarmupSchemeId;
   hapticsEnabled: boolean;
   audioEnabled: boolean;
   activeGymId: string;
@@ -77,12 +89,19 @@ export interface AppState {
   restRemainingSec: number;
   restUsingCustom: boolean;
   restCustomRaw: string;
+  autoRestOnLog: boolean;
+  log: SetEntry[];
+  lastLoggedLift: LiftId;
+  lastLoggedReps: string;
+  reversePlates: PlateStackItem[];
   setUnit: (unit: Unit) => void;
   setBarId: (barId: string) => void;
   setCustomBar: (weight: number) => void;
   setCollarId: (collarId: CollarId) => void;
   setPlateTheme: (theme: PlateTheme) => void;
   setRounding: (rounding: Rounding) => void;
+  setLoadBias: (loadBias: LoadBias) => void;
+  setWarmupScheme: (warmupSchemeId: WarmupSchemeId) => void;
   setHaptics: (on: boolean) => void;
   setAudio: (on: boolean) => void;
   setActiveGym: (id: string) => void;
@@ -114,6 +133,13 @@ export interface AppState {
   pauseRest: () => void;
   resetRest: () => void;
   finishRest: () => void;
+  setAutoRestOnLog: (autoRestOnLog: boolean) => void;
+  logSet: (entry: SetEntry) => void;
+  deleteLoggedSet: (id: string) => void;
+  clearLog: () => void;
+  setLastLoggedLift: (liftId: LiftId) => void;
+  setLastLoggedReps: (reps: string) => void;
+  setReversePlates: (reversePlates: PlateStackItem[]) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -126,6 +152,8 @@ export const useAppStore = create<AppState>()(
       collarId: 'none',
       plateTheme: 'bumper',
       rounding: 1,
+      loadBias: 'nearest',
+      warmupSchemeId: DEFAULT_WARMUP_SCHEME,
       hapticsEnabled: true,
       audioEnabled: true,
       activeGymId: 'commercial',
@@ -150,6 +178,11 @@ export const useAppStore = create<AppState>()(
       restRemainingSec: DEFAULT_REST_SEC,
       restUsingCustom: false,
       restCustomRaw: formatRestClock(DEFAULT_CUSTOM_REST_SEC),
+      autoRestOnLog: true,
+      log: [],
+      lastLoggedLift: 'squat',
+      lastLoggedReps: '5',
+      reversePlates: [],
       setUnit: (unit) => {
         const current = get();
         if (unit === current.unit) {
@@ -162,6 +195,8 @@ export const useAppStore = create<AppState>()(
         set({
           unit,
           customBar: current.barId === 'custom' ? nextCustom : preset ? (unit === 'lb' ? preset.lb : preset.kg) : nextCustom,
+          // The plates on the Reverse bar belong to the old unit's rack.
+          reversePlates: [],
         });
       },
       setBarId: (barId) => {
@@ -176,6 +211,8 @@ export const useAppStore = create<AppState>()(
       setCollarId: (collarId) => set({ collarId }),
       setPlateTheme: (plateTheme) => set({ plateTheme }),
       setRounding: (rounding) => set({ rounding }),
+      setLoadBias: (loadBias) => set({ loadBias }),
+      setWarmupScheme: (warmupSchemeId) => set({ warmupSchemeId }),
       setHaptics: (hapticsEnabled) => set({ hapticsEnabled }),
       setAudio: (audioEnabled) => set({ audioEnabled }),
       setActiveGym: (activeGymId) => set({ activeGymId }),
@@ -274,6 +311,13 @@ export const useAppStore = create<AppState>()(
         set({ restRunning: false, restEndTs: null, restRemainingSec: restDurationSec });
       },
       finishRest: () => set({ restRunning: false, restEndTs: null, restRemainingSec: 0 }),
+      setAutoRestOnLog: (autoRestOnLog) => set({ autoRestOnLog }),
+      logSet: (entry) => set({ log: appendEntry(get().log, entry), lastLoggedLift: entry.liftId }),
+      deleteLoggedSet: (id) => set({ log: removeEntry(get().log, id) }),
+      clearLog: () => set({ log: [] }),
+      setLastLoggedLift: (lastLoggedLift) => set({ lastLoggedLift }),
+      setLastLoggedReps: (lastLoggedReps) => set({ lastLoggedReps }),
+      setReversePlates: (reversePlates) => set({ reversePlates }),
     }),
     {
       name: 'ironmath-prefs-v1',
@@ -285,6 +329,8 @@ export const useAppStore = create<AppState>()(
         collarId: state.collarId,
         plateTheme: state.plateTheme,
         rounding: state.rounding,
+        loadBias: state.loadBias,
+        warmupSchemeId: state.warmupSchemeId,
         hapticsEnabled: state.hapticsEnabled,
         audioEnabled: state.audioEnabled,
         activeGymId: state.activeGymId,
@@ -308,6 +354,11 @@ export const useAppStore = create<AppState>()(
         restRemainingSec: state.restRemainingSec,
         restUsingCustom: state.restUsingCustom,
         restCustomRaw: state.restCustomRaw,
+        autoRestOnLog: state.autoRestOnLog,
+        log: state.log,
+        lastLoggedLift: state.lastLoggedLift,
+        lastLoggedReps: state.lastLoggedReps,
+        reversePlates: state.reversePlates,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
@@ -328,6 +379,21 @@ export const useAppStore = create<AppState>()(
             state.convertFrom = 'lb';
           }
           state.gymHudPinned = Boolean(state.gymHudPinned);
+          if (state.loadBias !== 'down' && state.loadBias !== 'up') {
+            state.loadBias = 'nearest';
+          }
+          if (!isWarmupSchemeId(state.warmupSchemeId)) {
+            state.warmupSchemeId = DEFAULT_WARMUP_SCHEME;
+          }
+          state.autoRestOnLog = state.autoRestOnLog !== false;
+          state.log = sanitizeLog(state.log);
+          if (!state.lastLoggedLift || !state.lifts[state.lastLoggedLift]) {
+            state.lastLoggedLift = 'squat';
+          }
+          if (typeof state.lastLoggedReps !== 'string' || !state.lastLoggedReps) {
+            state.lastLoggedReps = '5';
+          }
+          state.reversePlates = sanitizeSleeve(state.reversePlates);
           state.restDurationSec = clampRestDuration(Number(state.restDurationSec));
           if (typeof state.restCustomRaw !== 'string' || !state.restCustomRaw.trim()) {
             state.restCustomRaw = formatRestClock(

@@ -1,10 +1,80 @@
 import { eachSideCopy } from './breakdown';
 import type { CollarId } from './catalog';
 import { barWeight, collarWeight } from './catalog';
-import { solveLoad, type InventoryCounts, type LoadSolution, type PlateStackItem } from './solve';
+import { solveLoad, type InventoryCounts, type LoadBias, type LoadSolution, type PlateStackItem } from './solve';
 import type { Unit } from './units';
 
 export const WARMUP_PERCENTS = [0, 0.4, 0.6, 0.75, 0.85, 1] as const;
+
+export type WarmupSchemeId = 'quick' | 'standard' | 'thorough';
+
+export interface WarmupRung {
+  percent: number;
+  /** Suggested reps. `null` on the top rung: that is the set you came for. */
+  reps: number | null;
+}
+
+export interface WarmupScheme {
+  id: WarmupSchemeId;
+  name: string;
+  detail: string;
+  rungs: WarmupRung[];
+}
+
+export const WARMUP_SCHEMES: WarmupScheme[] = [
+  {
+    id: 'quick',
+    name: 'Quick',
+    detail: 'Four sets. When the gym is busy or the weight is light.',
+    rungs: [
+      { percent: 0, reps: 8 },
+      { percent: 0.5, reps: 5 },
+      { percent: 0.75, reps: 3 },
+      { percent: 1, reps: null },
+    ],
+  },
+  {
+    id: 'standard',
+    name: 'Standard',
+    detail: 'Six sets. The default ramp for most working weights.',
+    rungs: [
+      { percent: 0, reps: 10 },
+      { percent: 0.4, reps: 8 },
+      { percent: 0.6, reps: 5 },
+      { percent: 0.75, reps: 3 },
+      { percent: 0.85, reps: 2 },
+      { percent: 1, reps: null },
+    ],
+  },
+  {
+    id: 'thorough',
+    name: 'Thorough',
+    detail: 'Seven sets with smaller jumps. For heavy singles and meet day.',
+    rungs: [
+      { percent: 0, reps: 10 },
+      { percent: 0.4, reps: 8 },
+      { percent: 0.55, reps: 5 },
+      { percent: 0.7, reps: 3 },
+      { percent: 0.8, reps: 2 },
+      { percent: 0.9, reps: 1 },
+      { percent: 1, reps: null },
+    ],
+  },
+];
+
+export const DEFAULT_WARMUP_SCHEME: WarmupSchemeId = 'standard';
+
+export function warmupScheme(id: WarmupSchemeId | undefined): WarmupScheme {
+  return WARMUP_SCHEMES.find((scheme) => scheme.id === id) ?? WARMUP_SCHEMES[1];
+}
+
+export function isWarmupSchemeId(value: unknown): value is WarmupSchemeId {
+  return WARMUP_SCHEMES.some((scheme) => scheme.id === value);
+}
+
+export function repsCopy(reps: number | null): string {
+  return reps == null ? 'Work set' : `${reps} reps`;
+}
 
 export interface SwapHint {
   keep: PlateStackItem[];
@@ -18,6 +88,7 @@ export interface SwapHint {
 export interface WarmupSet {
   label: string;
   percent: number;
+  reps: number | null;
   target: number;
   solution: LoadSolution;
   swap: SwapHint;
@@ -30,13 +101,16 @@ export function warmupLadder(input: {
   collarId: CollarId;
   unit: Unit;
   inventory: InventoryCounts;
+  scheme?: WarmupSchemeId;
+  bias?: LoadBias;
 }): WarmupSet[] {
   const bar = barWeight(input.barId, input.unit, input.customBar);
   const collars = collarWeight(input.collarId, input.unit);
   const sets: WarmupSet[] = [];
   let previous: PlateStackItem[] = [];
 
-  for (const percent of WARMUP_PERCENTS) {
+  for (const rung of warmupScheme(input.scheme ?? DEFAULT_WARMUP_SCHEME).rungs) {
+    const percent = rung.percent;
     const rawTarget = percent === 0 ? bar + collars : input.workingWeight * percent;
     const target = Math.max(bar + collars, rawTarget);
     const solution = solveLoad({
@@ -45,10 +119,13 @@ export function warmupLadder(input: {
       collars,
       unit: input.unit,
       inventory: input.inventory,
+      // Every rung honours the lifter's bias, so "never go over" holds for the
+      // whole ramp and not just the top set.
+      bias: input.bias,
     });
     const swap = minSwap(previous, solution.plates);
     const label = percent === 0 ? 'Bar' : `${Math.round(percent * 100)}%`;
-    sets.push({ label, percent, target, solution, swap });
+    sets.push({ label, percent, reps: rung.reps, target, solution, swap });
     previous = solution.plates;
   }
   return sets;

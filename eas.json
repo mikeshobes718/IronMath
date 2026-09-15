@@ -25,7 +25,10 @@
         "ascAppId": "6808762294",
         "sku": "ironmath",
         "language": "en-US",
-        "appName": "IronMath"
+        "appName": "IronMath",
+        "ascApiKeyPath": "/Users/mike/Documents/Keys/AuthKey_AHX8B96U67.p8",
+        "ascApiKeyId": "AHX8B96U67",
+        "ascApiKeyIssuerId": "89565e28-1951-43ba-8d09-9bf85c91c822"
       }
     }
   }

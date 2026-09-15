@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { Keypad } from '../src/components/Keypad';
+import { Numpad } from '../src/components/Numpad';
 import { Screen } from '../src/components/Screen';
 import { Segmented } from '../src/components/Segmented';
 import { useKeypad } from '../src/components/useKeypad';
@@ -43,7 +43,7 @@ export default function RpeScreen() {
     field: {
       flex: 1,
       backgroundColor: theme.surface,
-      borderRadius: 16,
+      borderRadius: 22,
       borderWidth: 1,
       borderColor: theme.border,
       padding: 12,
@@ -53,7 +53,7 @@ export default function RpeScreen() {
     fieldValue: { color: theme.text, fontWeight: '800', fontSize: 18, marginTop: 4 },
     answer: {
       backgroundColor: theme.surface,
-      borderRadius: 16,
+      borderRadius: 22,
       borderWidth: 1,
       borderColor: theme.border,
       paddingHorizontal: 14,
@@ -79,12 +79,12 @@ export default function RpeScreen() {
   return (
     <Screen
       embedded
-      hint="Type your max. Pick reps and how hard the set should feel (10 is nothing left). We suggest the load."
       onDismiss={keypad.hide}
       footer={
-        <Keypad
-          open={keypad.open}
-          onOpenChange={keypad.setOpen}
+        <Numpad
+          mode="overlay"
+          visible={keypad.open}
+          onDone={keypad.hide}
           onKey={(key) => {
             if (field === 'oneRm') {
               setOneRmRaw((current) => appendKey(current, key));

@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
-import { Keyboard, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Keyboard, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useThemeColors } from '../theme/ThemeRoot';
 import { useThemedStyles } from '../theme/useThemedStyles';
+import { Glow } from './Glow';
 
 type Props = {
   title?: string;
@@ -13,6 +15,8 @@ type Props = {
   scroll?: boolean;
   embedded?: boolean;
   onDismiss?: () => void;
+  /** Show a soft accent glow behind the header — for the tab root screens. */
+  glow?: boolean;
 };
 
 export function Screen({
@@ -25,16 +29,18 @@ export function Screen({
   scroll = true,
   embedded = false,
   onDismiss,
+  glow = false,
 }: Props) {
-  const styles = useThemedStyles((theme) => ({
+  const theme = useThemeColors();
+  const styles = useThemedStyles((t) => ({
     safe: {
       flex: 1,
-      backgroundColor: theme.bg,
+      backgroundColor: t.bg,
     },
     header: {
       paddingHorizontal: 20,
       paddingTop: 6,
-      paddingBottom: 12,
+      paddingBottom: 14,
       gap: 8,
     },
     headerEmbedded: {
@@ -50,18 +56,19 @@ export function Screen({
       flex: 1,
     },
     title: {
-      color: theme.text,
-      fontSize: 30,
+      color: t.text,
+      fontSize: 32,
       fontWeight: '800',
-      letterSpacing: -0.8,
+      letterSpacing: -1,
     },
     subtitle: {
-      color: theme.muted,
+      color: t.muted,
       fontSize: 14,
+      fontWeight: '600',
       marginTop: 3,
     },
     hint: {
-      color: theme.muted,
+      color: t.dim,
       fontSize: 13,
       lineHeight: 18,
     },
@@ -97,6 +104,7 @@ export function Screen({
 
   return (
     <SafeAreaView style={styles.safe} edges={embedded ? [] : ['top']}>
+      {glow ? <Glow color={theme.accent} size={320} top={-140} opacity={0.22} /> : null}
       {showHeader ? (
         <Pressable onPress={dismiss} accessible={false}>
           <View style={[styles.header, embedded && styles.headerEmbedded]}>
