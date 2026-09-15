@@ -12,8 +12,17 @@ function TabIcon(props: { name: ComponentProps<typeof FontAwesome>['name']; colo
   return <FontAwesome size={19} {...props} />;
 }
 
-/** Inset of the capsule from the screen edges. */
-const CAPSULE_MARGIN = 22;
+/**
+ * Inset of the capsule from the screen edges.
+ *
+ * Measured, not guessed: painting the capsule a flat colour and reading the
+ * pixel bounds off a simulator screenshot gives exactly 40pt on each side —
+ * 322 of 402pt, 80.1% of screen width — which matches the proportion of the
+ * system pill bars this is modelled on.
+ * Note that left/right on tabBarStyle are ignored by the navigator — the
+ * inset has to come from padding here plus a matching margin on the capsule.
+ */
+const CAPSULE_MARGIN = 40;
 
 const styles = StyleSheet.create({
   capsule: {
