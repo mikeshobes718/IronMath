@@ -7,7 +7,6 @@ import { tick } from '../haptics/feedback';
 import { radius } from '../theme';
 import { useResolvedScheme, useThemeColors } from '../theme/ThemeRoot';
 import { useThemedStyles } from '../theme/useThemedStyles';
-import { useTabBarInset } from './useTabBarInset';
 
 const KEYS = [
   ['1', '2', '3'],
@@ -31,8 +30,6 @@ type Props = {
   onDone?: () => void;
   /** Sits on the left of the accessory bar — a unit toggle, usually. */
   accessory?: ReactNode;
-  /** Inline pads inside the tab navigator need less bottom padding. */
-  aboveTabBar?: boolean;
 };
 
 const SLIDE_DISTANCE = 460;
@@ -44,12 +41,13 @@ export function Numpad({
   visible = true,
   onDone,
   accessory,
-  aboveTabBar = false,
 }: Props) {
   const theme = useThemeColors();
   const scheme = useResolvedScheme();
+  // Inside a tab this bottom inset includes the native tab bar (Screen nests
+  // a SafeAreaProvider so it does); on a pushed screen it is the home
+  // indicator. Either way the keys end above whatever is there.
   const insets = useSafeAreaInsets();
-  const tabBarInset = useTabBarInset(8);
   const progress = useSharedValue(mode === 'inline' || visible ? 1 : 0);
 
   useEffect(() => {
@@ -65,8 +63,8 @@ export function Numpad({
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: (1 - progress.value) * SLIDE_DISTANCE }],
-    // Fully transparent when closed: the slide alone does not guarantee the
-    // pad is off-screen once it is raised above the floating tab bar.
+    // Fully transparent when closed as well: the pad is taller than the slide
+    // on the largest phones once the tab bar padding is counted.
     opacity: progress.value,
   }));
 
@@ -133,7 +131,10 @@ export function Numpad({
     },
   }));
 
-  const padBottom = tabBarInset > 0 ? 12 : Math.max(14, insets.bottom);
+  // The overlay runs to the screen edge and pads the keys up past the tab
+  // bar, the way the system keyboard would: the glass pill then sits over the
+  // pad's tint, not over its keys, and nothing of the page shows beneath it.
+  const padBottom = mode === 'overlay' ? insets.bottom + 12 : Math.max(14, insets.bottom);
 
   const body = (
     <View style={[styles.pad, mode === 'overlay' && styles.padTint, { paddingBottom: padBottom }]}>
@@ -200,7 +201,7 @@ export function Numpad({
   return (
     <Animated.View
       pointerEvents={visible ? 'auto' : 'none'}
-      style={[{ position: 'absolute', left: 0, right: 0, bottom: tabBarInset }, animatedStyle]}
+      style={[{ position: 'absolute', left: 0, right: 0, bottom: 0 }, animatedStyle]}
     >
       <View style={styles.hairline} />
       <BlurView intensity={95} tint={scheme === 'dark' ? 'dark' : 'light'}>

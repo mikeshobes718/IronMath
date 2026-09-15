@@ -96,6 +96,14 @@ final class WearablesHud: @unchecked Sendable {
     guard let url = URL(string: value) else {
       return "ignored"
     }
+    // Every incoming app URL is routed through here, not only the SDK's own
+    // registration callbacks, and `Wearables.shared` is a Swift assertion —
+    // not a thrown error — when configure() has not run yet. So a plain
+    // ironmath://warmup link arriving before the glasses were connected in
+    // this launch took the whole app down. configure() is idempotent and is
+    // what the other entry points do before touching `.shared`; if it throws
+    // (no SDK entitlement, simulator) that surfaces as an error JS can catch.
+    _ = try await configure()
     _ = try await Wearables.shared.handleUrl(url)
     return "handled"
 #else

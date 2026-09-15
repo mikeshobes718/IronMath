@@ -19,8 +19,11 @@ function openWarmupFromUrl(url: string) {
   if (query.unit === 'lb' || query.unit === 'kg') {
     params.unit = query.unit;
   }
+  // navigate, not replace: warmup is a tab, and the native tab router handles
+  // NAVIGATE (a jump to the tab) but not REPLACE. Glance and rest below are
+  // stack screens, where replace is the right call.
   setTimeout(() => {
-    router.replace({ pathname: '/warmup', params });
+    router.navigate({ pathname: '/warmup', params });
   }, 250);
 }
 
@@ -102,6 +105,7 @@ function RootStack() {
       <Stack.Screen name="rpe" options={toolOptions('How hard is this set')} />
       <Stack.Screen name="dots" options={toolOptions('Meet score')} />
       <Stack.Screen name="attempts" options={toolOptions('Plan three attempts')} />
+      <Stack.Screen name="settings" options={toolOptions('Settings')} />
     </Stack>
   );
 }

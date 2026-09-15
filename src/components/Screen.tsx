@@ -1,10 +1,9 @@
 import type { ReactNode } from 'react';
 import { Keyboard, Pressable, ScrollView, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeColors } from '../theme/ThemeRoot';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import { Glow } from './Glow';
-import { useTabBarInset } from './useTabBarInset';
 
 type Props = {
   title?: string;
@@ -33,7 +32,6 @@ export function Screen({
   glow = false,
 }: Props) {
   const theme = useThemeColors();
-  const bottomInset = useTabBarInset();
   const styles = useThemedStyles((t) => ({
     safe: {
       flex: 1,
@@ -79,7 +77,6 @@ export function Screen({
       paddingBottom: 28,
       gap: 14,
     },
-    contentInset: { paddingBottom: 28 + bottomInset },
     fill: {
       flex: 1,
       paddingHorizontal: 20,
@@ -92,7 +89,11 @@ export function Screen({
   const showHeader = Boolean(title || subtitle || hint || right);
   const body = scroll ? (
     <ScrollView
-      contentContainerStyle={[styles.content, bottomInset > 0 && styles.contentInset]}
+      contentContainerStyle={styles.content}
+      // UIKit adds the tab bar (or the home indicator, on pushed screens) to
+      // the scrollable area itself: content scrolls under the glass and the
+      // last row still clears it, with no JS measurement of the bar.
+      contentInsetAdjustmentBehavior="automatic"
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
       onScrollBeginDrag={dismiss}
@@ -105,9 +106,14 @@ export function Screen({
     <View style={styles.fill}>{children}</View>
   );
 
+  // The provider is nested on purpose. The root one sits outside the native
+  // tab controller, so its bottom inset is the home indicator only; one inside
+  // the tab's view controller reports the tab bar too, which is what the
+  // Numpad footer needs to clear it. On pushed screens it matches the root.
   return (
-    <SafeAreaView style={styles.safe} edges={embedded ? [] : ['top']}>
-      {glow ? <Glow color={theme.accent} size={320} top={-140} opacity={0.22} /> : null}
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.safe} edges={embedded ? [] : ['top']}>
+        {glow ? <Glow color={theme.accent} size={320} top={-140} opacity={0.22} /> : null}
       {showHeader ? (
         <Pressable onPress={dismiss} accessible={false}>
           <View style={[styles.header, embedded && styles.headerEmbedded]}>
@@ -122,8 +128,9 @@ export function Screen({
           </View>
         </Pressable>
       ) : null}
-      {body}
-      {footer}
-    </SafeAreaView>
+        {body}
+        {footer}
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }

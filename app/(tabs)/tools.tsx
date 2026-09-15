@@ -20,7 +20,8 @@ type ToolHref =
   | '/glance'
   | '/rest'
   | '/onerm'
-  | '/rpe';
+  | '/rpe'
+  | '/settings';
 
 const LIFT_ICONS: Record<LiftId, ComponentProps<typeof FontAwesome>['name']> = {
   squat: 'male',
@@ -134,6 +135,14 @@ export default function ToolsScreen() {
     chevron: { width: 18, alignItems: 'flex-end' as const, justifyContent: 'center' as const },
     title: { color: colors.text, fontSize: 17, fontWeight: '800' as const },
     detail: { color: colors.muted, fontSize: 13, lineHeight: 18 },
+    gear: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.accentSoft,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+    },
   }));
 
   const open = (href: ToolHref, lift?: LiftId) => {
@@ -149,6 +158,17 @@ export default function ToolsScreen() {
     <Screen
       title="Tools"
       subtitle="By lift and goal"
+      right={
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Settings"
+          hitSlop={8}
+          onPress={() => open('/settings')}
+          style={styles.gear}
+        >
+          <FontAwesome name="cog" size={18} color={theme.accent} />
+        </Pressable>
+      }
     >
       <GroupHeader>By lift</GroupHeader>
       <Group>
@@ -221,6 +241,29 @@ export default function ToolsScreen() {
             </View>
           </Pressable>
         ))}
+      </Group>
+
+      {/* Settings used to be its own tab. UITabBar on iPhone folds a sixth
+          tab into "More", so it lives here now, plus the gear in the header. */}
+      <GroupHeader>App</GroupHeader>
+      <Group>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Settings. Gyms, plates, units, and feel."
+          onPress={() => open('/settings')}
+          style={[styles.row, styles.rowLast]}
+        >
+          <View style={styles.iconWrap}>
+            <FontAwesome name="cog" size={16} color={theme.accent} />
+          </View>
+          <View style={styles.copy}>
+            <Text style={styles.title}>Settings</Text>
+            <Text style={styles.detail}>Gyms, plates, units, and feel.</Text>
+          </View>
+          <View style={styles.chevron}>
+            <FontAwesome name="chevron-right" size={12} color={theme.dim} />
+          </View>
+        </Pressable>
       </Group>
     </Screen>
   );

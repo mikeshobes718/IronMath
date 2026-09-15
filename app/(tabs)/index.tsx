@@ -11,7 +11,6 @@ import { PickerRow } from '../../src/components/PickerRow';
 import { Screen } from '../../src/components/Screen';
 import { Segmented } from '../../src/components/Segmented';
 import { useKeypad } from '../../src/components/useKeypad';
-import { useTabBarInset } from '../../src/components/useTabBarInset';
 import { tick } from '../../src/haptics/feedback';
 import {
   appendKey,
@@ -66,10 +65,9 @@ export default function LoadBarScreen() {
   const keypad = useKeypad();
   const [logOpen, setLogOpen] = useState(false);
   const [logged, setLogged] = useState<string | null>(null);
-  const tabBarInset = useTabBarInset();
 
   const styles = useThemedStyles((t) => ({
-    content: { paddingBottom: 28 + tabBarInset },
+    content: { paddingBottom: 28 },
     hero: { gap: 6, marginBottom: space.md },
     heroHead: {
       flexDirection: 'row',
@@ -259,6 +257,8 @@ export default function LoadBarScreen() {
     >
       <ScrollView
         contentContainerStyle={styles.content}
+        // The native tab bar insets the scrollable area itself (see Screen).
+        contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
         onScrollBeginDrag={keypad.hide}
         showsVerticalScrollIndicator={false}

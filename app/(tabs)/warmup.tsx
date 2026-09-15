@@ -9,7 +9,6 @@ import { Numpad } from '../../src/components/Numpad';
 import { Screen } from '../../src/components/Screen';
 import { Segmented } from '../../src/components/Segmented';
 import { useKeypad } from '../../src/components/useKeypad';
-import { useTabBarInset } from '../../src/components/useTabBarInset';
 import {
   appendKey,
   barWeight,
@@ -48,7 +47,6 @@ export default function WarmupScreen() {
   const [raw, setRaw] = useState('225');
   const [picked, setPicked] = useState<WarmupSet | null>(null);
   const keypad = useKeypad();
-  const tabBarInset = useTabBarInset();
   const theme = useThemeColors();
   const params = useLocalSearchParams<{ rung?: string; unit?: string }>();
   const inventory = useInventoryFor(displayUnit);
@@ -97,7 +95,7 @@ export default function WarmupScreen() {
     },
     dual: { color: theme.muted, fontSize: 15, fontWeight: '600' },
     ladder: { flex: 1 },
-    ladderContent: { paddingBottom: 16 + tabBarInset, gap: 12 },
+    ladderContent: { paddingBottom: 16, gap: 12 },
     row: {
       backgroundColor: theme.surface,
       borderRadius: 22,
@@ -313,6 +311,8 @@ export default function WarmupScreen() {
         <ScrollView
           style={styles.ladder}
           contentContainerStyle={styles.ladderContent}
+          // The native tab bar insets the scrollable area itself (see Screen).
+          contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
           onScrollBeginDrag={keypad.hide}
           showsVerticalScrollIndicator={false}

@@ -1,15 +1,15 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { useEffect, useState } from 'react';
 import { Alert, Keyboard, Pressable, Switch, Text, TextInput, View } from 'react-native';
-import { Group, GroupFooter, GroupHeader, GroupRow } from '../../src/components/Group';
-import { NumpadDoneBar, numpadAccessoryProps } from '../../src/components/NumpadDoneBar';
-import { Screen } from '../../src/components/Screen';
-import { platesForUnit, WARMUP_SCHEMES } from '../../src/engine';
-import { tick } from '../../src/haptics/feedback';
-import { useActiveGym, useAppStore, useInventory } from '../../src/store/useAppStore';
-import { useThemeColors } from '../../src/theme/ThemeRoot';
-import { useThemedStyles } from '../../src/theme/useThemedStyles';
-import { addIronMathWebApp } from '../../src/wearables/openOnGlasses';
+import { Group, GroupFooter, GroupHeader, GroupRow } from '../src/components/Group';
+import { NumpadDoneBar, numpadAccessoryProps } from '../src/components/NumpadDoneBar';
+import { Screen } from '../src/components/Screen';
+import { platesForUnit, WARMUP_SCHEMES } from '../src/engine';
+import { tick } from '../src/haptics/feedback';
+import { useActiveGym, useAppStore, useInventory } from '../src/store/useAppStore';
+import { useThemeColors } from '../src/theme/ThemeRoot';
+import { useThemedStyles } from '../src/theme/useThemedStyles';
+import { addIronMathWebApp } from '../src/wearables/openOnGlasses';
 
 export default function SettingsScreen() {
   const unit = useAppStore((state) => state.unit);
@@ -65,10 +65,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <Screen
-      title="Settings"
-      subtitle="Gyms, plates, and feel"
-    >
+    <Screen embedded>
       <GroupHeader>Appearance</GroupHeader>
       <Group>
         <Choice
