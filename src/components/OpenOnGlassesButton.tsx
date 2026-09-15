@@ -3,15 +3,19 @@ import { Pressable, Text } from 'react-native';
 import { tick } from '../haptics/feedback';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import type { GlassesView } from '../wearables/glassesQuery';
+import type { GlassesTarget } from '../wearables/openOnGlasses';
 import { openIronMathOnGlasses } from '../wearables/openOnGlasses';
 
 export function OpenOnGlassesButton({
   view,
   filled = false,
+  target,
   onOpen,
 }: {
   view: GlassesView;
   filled?: boolean;
+  /** For screens holding their own weight rather than Load's target. */
+  target?: GlassesTarget;
   onOpen?: () => void;
 }) {
   const [note, setNote] = useState('');
@@ -52,7 +56,7 @@ export function OpenOnGlassesButton({
           void tick('medium');
           onOpen?.();
           setNote('Sending to glasses...');
-          void openIronMathOnGlasses(view)
+          void openIronMathOnGlasses(view, target)
             .then((message) => setNote(message))
             .catch((error: unknown) => {
               setNote(error instanceof Error ? error.message : 'Could not open on glasses.');

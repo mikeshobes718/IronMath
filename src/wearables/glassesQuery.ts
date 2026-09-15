@@ -11,7 +11,7 @@ import {
 export const GLASSES_WEB_APP_NAME = 'IronMath';
 export const GLASSES_WEB_APP_ORIGIN = 'https://ironmath-glasses.vercel.app';
 
-export type GlassesView = 'load' | 'convert';
+export type GlassesView = 'load' | 'convert' | 'warmup';
 
 export type GlassesQueryInput = GlanceInput & { view: GlassesView };
 

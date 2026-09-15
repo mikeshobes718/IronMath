@@ -1,5 +1,6 @@
 const MAX_SEARCH = 4000;
-const HUD_VERSION = 'v10';
+const VIEWS = ['load', 'convert', 'warmup'];
+const HUD_VERSION = 'v11';
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -83,7 +84,7 @@ function enrich(body) {
       ok: true,
       persisted: true,
       search: body.search,
-      view: body.view === 'convert' ? 'convert' : parsed.view || 'load',
+      view: VIEWS.includes(body.view) ? body.view : parsed.view || 'load',
       ts: body.ts,
       targetLabel: hud.targetLabel || '',
       loadedLabel: hud.loadedLabel || '',
@@ -131,7 +132,7 @@ function normalizeBody(input) {
   if (!search) {
     return null;
   }
-  const view = input && input.view === 'convert' ? 'convert' : 'load';
+  const view = input && VIEWS.includes(input.view) ? input.view : 'load';
   const ts = Number(input && input.ts);
   return enrich({
     ok: true,

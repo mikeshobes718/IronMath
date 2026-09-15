@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { BarbellSleeve } from '../../src/components/BarbellSleeve';
 import { ChipRow } from '../../src/components/Chips';
+import { OpenOnGlassesButton } from '../../src/components/OpenOnGlassesButton';
 import { Numpad } from '../../src/components/Numpad';
 import { Screen } from '../../src/components/Screen';
 import { Segmented } from '../../src/components/Segmented';
@@ -286,6 +287,12 @@ export default function WarmupScreen() {
           <Text style={styles.working}>{raw || '0'}</Text>
           <Text style={styles.dual}>{topShown}</Text>
         </Pressable>
+
+        <OpenOnGlassesButton
+          view="warmup"
+          target={{ targetRaw: raw || '0', inputUnit: displayUnit }}
+          onOpen={keypad.hide}
+        />
 
         <View style={styles.schemeWrap}>
           <ChipRow

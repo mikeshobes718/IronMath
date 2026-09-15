@@ -86,9 +86,33 @@
     return u === 'kg' ? 'kg' : 'lb';
   }
 
+  function gymUnit() {
+    var u = params().get('gu');
+    return u === 'lb' ? 'lb' : 'kg';
+  }
+
   function targetValue() {
     var raw = Number(params().get('t'));
     return isFinite(raw) ? raw : 0;
+  }
+
+  // `t` is in the unit the lifter types in (iu); `bar` and `col` arrive in the
+  // gym's plate unit (gu). Those are frequently different — typing in pounds
+  // against kilo plates is the common case — so anything crossing between them
+  // has to convert or the numbers are silently wrong.
+  var KG_PER_LB = 0.45359237;
+
+  function gymToInput(value) {
+    var iu = inputUnit();
+    var gu = gymUnit();
+    if (iu === gu) return value;
+    return gu === 'kg' ? value / KG_PER_LB : value * KG_PER_LB;
+  }
+
+  function barPlusCollarsInInputUnit() {
+    var bar = Number(params().get('bar'));
+    var col = Number(params().get('col'));
+    return gymToInput((isFinite(bar) ? bar : 0) + (isFinite(col) ? col : 0));
   }
 
   /* ------------------------------------------------------------------ edit */
@@ -145,25 +169,38 @@
 
   /* --------------------------------------------------------------- warm-up */
 
+  // Ramp percentages and the reps to do at each, matching the phone's
+  // Standard scheme. The last rung is the working set itself.
+  var WARMUP_PERCENTS = [0, 0.4, 0.6, 0.75, 0.85, 1];
+  var WARMUP_REPS = [10, 8, 5, 3, 2, null];
+
+  // Computed here rather than via the engine's warmupLine(): that helper mixes
+  // units — it takes the working weight in the typed unit but the bar in the
+  // gym's unit — which lands far off whenever those differ, and it returns
+  // gym-unit numbers that cannot be written straight back into `t`. Everything
+  // below stays in the typed unit, which is the unit `t` is read in.
   function warmupRungs() {
     if (warmupFrozen) return warmupFrozen;
-    var api = window.IronMath;
-    if (!api || !api.warmupLine) return [];
-    try {
-      var line = api.warmupLine(api.parseGlassesSearch(liveSearch || ''));
-      if (!line) return [];
-      return line.split(' / ').map(function (v) { return Number(v); })
-        .filter(function (v) { return isFinite(v) && v > 0; });
-    } catch (err) {
-      return [];
-    }
+    var working = warmupWorking != null ? warmupWorking : targetValue();
+    if (!(working > 0)) return [];
+    var floor = barPlusCollarsInInputUnit();
+    return WARMUP_PERCENTS.map(function (p) {
+      var raw = p === 0 ? floor : working * p;
+      return Math.max(floor, Math.round(raw * 100) / 100);
+    });
+  }
+
+  function warmupRepsFor(index) {
+    return WARMUP_REPS[index] != null ? WARMUP_REPS[index] + ' reps' : 'Work set';
   }
 
   function enterWarmup() {
     warmupFrozen = null;
+    // Capture the working weight before building the ladder — the rungs are
+    // percentages of it, and setTarget() below will move `t` off it.
+    warmupWorking = targetValue();
     var rungs = warmupRungs();
     warmupFrozen = rungs.length ? rungs : null;
-    warmupWorking = targetValue();
     warmupIndex = 0;
     if (warmupFrozen) setTarget(warmupFrozen[0]);
     // Set the view directly rather than via go(): go() routes an unladdered
@@ -389,12 +426,16 @@
     } else if (view === 'warmup') {
       var rungs = warmupRungs();
       var idx = warmupIndex == null ? 0 : warmupIndex;
-      var unit = (params().get('gu') === 'lb') ? 'LB' : 'KG';
+      var bare = !h || !h.hud.plates || !h.hud.plates.length;
+      // The first rung is the empty bar by definition. The solver's stock
+      // "No plates on the bar yet." reads like an error there, when it is
+      // actually the instruction: warm up on the bar.
+      var sideCopy = bare ? 'Just the bar — no plates' : h.hud.eachSide;
       body = headHtml('WARM-UP ' + (rungs.length ? (idx + 1) + '/' + rungs.length : '')) +
-        '<div class="load-block"><div class="kicker">THIS SET</div>' +
+        '<div class="load-block"><div class="kicker">' + esc(warmupRepsFor(idx)) + '</div>' +
         '<div class="loaded">' + esc(h ? h.hud.loadedLabel : '--') + '</div></div>' +
         (h ? barHtml(h.hud.plates) : '') +
-        '<div class="side">' + esc(h ? h.hud.eachSide : '') + '</div>';
+        '<div class="side">' + esc(sideCopy) + '</div>';
     } else {
       // No screen label here: the LOAD kicker sits directly under it, and two
       // "LOAD"s on a lens is one more word than the glance can spare.
@@ -455,7 +496,30 @@
     try {
       if (qs !== location.search) history.replaceState({}, '', qs);
     } catch (err) {}
+    // Honour the view the phone asked for. Without this, "Open on glasses"
+    // from Convert or Warm-Up silently lands on whatever the lens happened to
+    // be showing — the set arrives, the screen never changes.
+    applyRequestedView();
     paint();
+  }
+
+  // A pushed warm-up arrives as a working weight plus view=warmup; build the
+  // ladder from it the same way entering warm-up on the lens would.
+  function applyRequestedView() {
+    var asked = params().get('view');
+    if (asked === 'convert' && view !== 'convert') {
+      view = 'convert';
+      cursor = 0;
+    } else if (asked === 'warmup' && view !== 'warmup') {
+      // Only on arrival. Rebuilding the ladder on every later push would drop
+      // someone who is already three rungs in back onto the empty bar.
+      warmupFrozen = null;
+      warmupWorking = null;
+      enterWarmup();
+    } else if (asked === 'load' && view !== 'load') {
+      view = 'load';
+      cursor = 0;
+    }
   }
 
   function poll() {
@@ -499,6 +563,9 @@
   window.addEventListener('resize', fitStage);
   if (window.visualViewport) window.visualViewport.addEventListener('resize', fitStage);
   fitStage();
+  // Opening the lens straight from a phone link carries the view in the URL,
+  // so honour it before the first paint rather than defaulting to Load.
+  applyRequestedView();
   paint();
   startPolling();
   window.addEventListener('pageshow', function () { lastTs = 0; startPolling(); });

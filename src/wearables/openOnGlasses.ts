@@ -1,5 +1,5 @@
 import * as Linking from 'expo-linking';
-import { barWeight, collarWeight, remainingFromEnd, restTimerForGlasses, type RestTimerPayload } from '../engine';
+import { barWeight, collarWeight, remainingFromEnd, restTimerForGlasses, type RestTimerPayload, type Unit } from '../engine';
 import { useAppStore } from '../store/useAppStore';
 import {
   buildGlassesWebAppUrl,
@@ -60,7 +60,13 @@ export function currentRestTimerPayload(): RestTimerPayload | null {
   });
 }
 
+/** Screens that hold their own weight can send it instead of Load's target. */
+export type GlassesTarget = { targetRaw: string; inputUnit: Unit };
+
 let lastGlassesView: GlassesView = 'load';
+// Remembered so later best-effort pushes (the rest timer) keep sending the
+// same set the lifter actually put on the lens, not Load's target.
+let lastGlassesTarget: GlassesTarget | null = null;
 
 type HudApiBody = {
   ok?: boolean;
@@ -79,8 +85,12 @@ async function readJson(response: Response): Promise<HudApiBody | null> {
   }
 }
 
-function postHud(view: GlassesView): Promise<Response> {
-  const pageUrl = buildGlassesWebAppUrl({ ...currentGlassesInput(), view });
+function postHud(view: GlassesView, target?: GlassesTarget | null): Promise<Response> {
+  const base = currentGlassesInput();
+  const input = target
+    ? { ...base, targetRaw: target.targetRaw, inputUnit: target.inputUnit }
+    : base;
+  const pageUrl = buildGlassesWebAppUrl({ ...input, view });
   const search = searchFromGlassesUrl(pageUrl);
   return fetch(GLASSES_HUD_API, {
     method: 'POST',
@@ -116,16 +126,20 @@ async function confirmHud(posted: HudApiBody): Promise<boolean> {
 
 export async function pushRestTimerToGlasses(): Promise<void> {
   try {
-    await postHud(lastGlassesView);
+    await postHud(lastGlassesView, lastGlassesTarget);
   } catch {
     // Glasses updates are best effort. The timer still runs on the phone.
   }
 }
 
-export async function openIronMathOnGlasses(view: GlassesView): Promise<string> {
+export async function openIronMathOnGlasses(
+  view: GlassesView,
+  target?: GlassesTarget
+): Promise<string> {
   lastGlassesView = view;
+  lastGlassesTarget = target ?? null;
   try {
-    const response = await postHud(view);
+    const response = await postHud(view, target);
     const payload = await readJson(response);
     if (!response.ok || payload?.ok === false) {
       throw new Error(payload?.error || 'Could not save this set for the glasses.');
