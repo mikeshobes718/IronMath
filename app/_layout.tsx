@@ -59,6 +59,15 @@ export const unstable_settings = {
   initialRouteName: '(tabs)',
 };
 
+// The oversized capsule around this button is iOS 26 itself, not this
+// component: swapping it for the plain native back button (tested directly)
+// produces the exact same size, so react-native-screens/UIKit enforces a
+// fixed minimum Liquid Glass capsule on every nav-bar back button now,
+// native or custom, with no override available in this react-native-screens
+// version. Native also dropped the accent tint. So: one component,
+// everywhere, for a consistent look and a guaranteed way back to Tools from
+// the two screens (glance, rest) that can be entered by deep link with no
+// back-stack to pop to.
 function toolOptions(title: string) {
   return {
     title,

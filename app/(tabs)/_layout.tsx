@@ -3,7 +3,6 @@ import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
 import type { ComponentProps } from 'react';
 import { StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useResolvedScheme, useThemeColors } from '../../src/theme/ThemeRoot';
 
 function TabIcon(props: { name: ComponentProps<typeof FontAwesome>['name']; color: string }) {
@@ -11,7 +10,6 @@ function TabIcon(props: { name: ComponentProps<typeof FontAwesome>['name']; colo
 }
 
 export default function TabLayout() {
-  const insets = useSafeAreaInsets();
   const theme = useThemeColors();
   const scheme = useResolvedScheme();
   return (
@@ -33,12 +31,19 @@ export default function TabLayout() {
           // Deliberately not `position: absolute` — keeping it in normal flow
           // means every screen's content naturally stops above it, so the
           // glass material is free without auditing every scroll inset.
+          //
+          // No explicit height or paddingBottom: BottomTabBar already renders
+          // the standard 49pt bar plus the safe-area inset itself. Setting our
+          // own height/paddingBottom here didn't stack on top of that — it
+          // replaced those two properties — but the icon/label were still
+          // centered against the size the library had measured before the
+          // override landed, which is what left the oversized gap under the
+          // labels. Leaving both unset lets the library's own measurement and
+          // centering agree.
           backgroundColor: 'transparent',
           borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: theme.border,
-          paddingTop: 8,
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 20,
-          height: 54 + (insets.bottom > 0 ? insets.bottom : 20),
+          paddingTop: 6,
         },
         tabBarLabelStyle: {
           fontSize: 10,

@@ -10,13 +10,20 @@ export function ToolsBackButton() {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel="Back to Tools"
-      hitSlop={16}
+      // iOS 26 wraps any custom header-bar view in its own Liquid Glass
+      // capsule, sized to whatever box we hand it — react-native-screens has
+      // no prop to opt out of or resize that (confirmed: no
+      // headerLeftContainerStyle or glass-related API in this version). A
+      // touch-friendly padded box here becomes an oversized capsule there, so
+      // the content box stays tight to the label and hitSlop alone covers the
+      // touch target.
+      hitSlop={20}
       onPress={() => {
         router.navigate('/(tabs)/tools');
       }}
       style={styles.row}
     >
-      <FontAwesome name="chevron-left" size={15} color={theme.accent} />
+      <FontAwesome name="chevron-left" size={14} color={theme.accent} />
       <Text style={[styles.label, { color: theme.accent }]}>Tools</Text>
     </Pressable>
   );
@@ -26,10 +33,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingRight: 10,
-    minHeight: 44,
-    gap: 4,
+    gap: 3,
   },
   label: {
     fontSize: 17,
