@@ -14,7 +14,7 @@
  */
 (function () {
   var HUD_API = 'https://ironmath-glasses.vercel.app/api/hud';
-  var HUD_VERSION = 'v11';
+  var HUD_VERSION = 'v11.1';
   var stage = document.getElementById('stage');
   var root = document.getElementById('root');
   var dots = document.getElementById('dots');
@@ -143,7 +143,7 @@
   function pushBack() {
     var ts = Date.now();
     lastLocalWrite = ts;
-    var payload = { search: liveSearch, ts: ts };
+    var payload = { search: liveSearch, ts: ts, view: view === 'rest' ? 'load' : view };
     // The store rebuilds each record from the posted body, so a write without a
     // timer would wipe a rest countdown the phone is still showing on the lock
     // screen. Carry it along whenever one is live.
@@ -202,11 +202,13 @@
     var rungs = warmupRungs();
     warmupFrozen = rungs.length ? rungs : null;
     warmupIndex = 0;
-    if (warmupFrozen) setTarget(warmupFrozen[0]);
-    // Set the view directly rather than via go(): go() routes an unladdered
-    // warmup back here, and with no rungs to freeze that would recurse.
+    // Switch the view before setTarget(), which paints: otherwise the first
+    // paint still renders the previous screen and the lens flashes Load.
+    // Set directly rather than via go() — go() routes an unladdered warmup
+    // back here, and with no rungs to freeze that would recurse.
     view = 'warmup';
     cursor = 0;
+    if (warmupFrozen) setTarget(warmupFrozen[0]);
     paint();
   }
 
@@ -488,6 +490,26 @@
 
   /* ------------------------------------------------------- phone push sync */
 
+  // A lens left open keeps running whatever bundle it loaded, so a deployed
+  // fix never arrives — and you cannot easily force a reload on the glasses.
+  // The API stamps every response with the version it was deployed at, so a
+  // mismatch means this page is stale.
+  function maybeReloadForVersion(apiVersion) {
+    if (!apiVersion || apiVersion === HUD_VERSION) return false;
+    // Reload at most once per version. If the new bundle somehow is not
+    // served, a wearable stuck in a reload loop would burn the battery, so
+    // the version we reloaded for is recorded in the URL and never retried.
+    if (params().get('rv') === apiVersion) return false;
+    try {
+      var p = params();
+      p.set('rv', apiVersion);
+      location.search = '?' + p.toString();
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
   function applySearch(search) {
     var qs = String(search || '');
     if (!qs) return;
@@ -500,7 +522,8 @@
     // from Convert or Warm-Up silently lands on whatever the lens happened to
     // be showing — the set arrives, the screen never changes.
     applyRequestedView();
-    paint();
+    // No paint here: poll() paints once after it has also applied any timer,
+    // so the lens does not render an intermediate view for a frame.
   }
 
   // A pushed warm-up arrives as a working weight plus view=warmup; build the
@@ -530,11 +553,16 @@
         var ts = Number(data.ts) || 0;
         if (ts && ts === lastTs) return;
         lastTs = ts || Date.now();
+        if (maybeReloadForVersion(data.v)) return;
         // The store rebuilds records and drops any origin marker, so our own
         // writes come back indistinguishable from the phone's. Anything not
         // newer than our last local edit is an echo or is stale; dropping it
         // stops a slow round trip from undoing a fresh adjustment.
         if (ts && lastLocalWrite && ts <= lastLocalWrite) return;
+        // Order matters: the search carries the view the phone asked for, and
+        // a running countdown outranks it. Applying the search second would
+        // bounce the lens straight off a rest timer the moment it started.
+        if (data.search) applySearch(data.search);
         if (data.timer && typeof data.timer === 'object') {
           var d = Number(data.timer.duration);
           var rem = Number(data.timer.remaining);
@@ -542,9 +570,11 @@
           if (isFinite(rem) && rem >= 0) rest.remaining = rem;
           rest.running = data.timer.running === true;
           rest.endTs = rest.running && data.timer.end ? Number(data.timer.end) : null;
-          if (rest.running) view = 'rest';
+          if (rest.running) {
+            view = 'rest';
+            cursor = 0;
+          }
         }
-        if (data.search) applySearch(data.search);
         paint();
       })
       .catch(function () {});

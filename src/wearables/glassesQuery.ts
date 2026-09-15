@@ -19,6 +19,10 @@ function isUnit(value: string | null): value is Unit {
   return value === 'lb' || value === 'kg';
 }
 
+function isGlassesView(value: string | null): value is GlassesView {
+  return value === 'load' || value === 'convert' || value === 'warmup';
+}
+
 export function encodeGymInventory(inventory: InventoryCounts): string {
   return Object.entries(inventory)
     .filter(([, count]) => (count ?? 0) > 0)
@@ -89,7 +93,7 @@ export function parseGlassesSearch(search: string): GlassesQueryInput {
   const roundingRaw = Number(params.get('r') ?? '1');
   const rounding: Rounding = roundingRaw === 0 || roundingRaw === 2 ? roundingRaw : 1;
   return {
-    view: params.get('view') === 'convert' ? 'convert' : 'load',
+    view: isGlassesView(params.get('view')) ? (params.get('view') as GlassesView) : 'load',
     targetRaw: params.get('t') ?? '',
     inputUnit: isUnit(inputParam) ? inputParam : 'lb',
     gymUnit,

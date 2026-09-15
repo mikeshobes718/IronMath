@@ -1,6 +1,6 @@
 const MAX_SEARCH = 4000;
 const VIEWS = ['load', 'convert', 'warmup'];
-const HUD_VERSION = 'v11';
+const HUD_VERSION = 'v11.1';
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
