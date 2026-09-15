@@ -3,7 +3,7 @@ import { useContext } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 /** Height of the floating tab bar capsule itself. */
-export const FLOATING_TAB_BAR_HEIGHT = 62;
+export const FLOATING_TAB_BAR_HEIGHT = 58;
 
 /** Gap between the bottom of the capsule and the bottom of the screen. */
 export function floatingTabBarGap(safeBottom: number): number {

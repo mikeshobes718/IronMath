@@ -12,6 +12,17 @@ function TabIcon(props: { name: ComponentProps<typeof FontAwesome>['name']; colo
   return <FontAwesome size={19} {...props} />;
 }
 
+/** Inset of the capsule from the screen edges. */
+const CAPSULE_MARGIN = 22;
+
+const styles = StyleSheet.create({
+  capsule: {
+    marginHorizontal: CAPSULE_MARGIN,
+    borderRadius: radius.pill,
+    overflow: 'hidden',
+  },
+});
+
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const theme = useThemeColors();
@@ -30,34 +41,47 @@ export default function TabLayout() {
         // Frosted glass clipped to the capsule. The bar floats over content,
         // so screens add their own bottom inset via BottomTabBarHeightContext
         // (see Screen.tsx) rather than the navigator reserving layout space.
+        // The capsule shape is built here rather than left to the navigator's
+        // container. Relying on overflow:hidden on the bar itself did not clip
+        // this background — the fill painted the full width of the screen, so
+        // what rendered was a wide light band rather than a pill.
         tabBarBackground: () => (
-          <BlurView
-            intensity={90}
-            tint={scheme === 'dark' ? 'dark' : 'light'}
-            style={[
-              StyleSheet.absoluteFillObject,
-              { backgroundColor: scheme === 'dark' ? 'rgba(20,19,22,0.55)' : 'rgba(255,255,255,0.6)' },
-            ]}
-          />
+          <View style={[StyleSheet.absoluteFillObject, styles.capsule]}>
+            <BlurView
+              intensity={80}
+              tint={scheme === 'dark' ? 'dark' : 'light'}
+              style={StyleSheet.absoluteFillObject}
+            />
+            {/* Painted over the blur, not passed to it: BlurView renders its
+                material above its own backgroundColor, so tinting it directly
+                has no visible effect. The tint is what lifts the capsule clear
+                of the page — a near-black pill on a near-black page reads as
+                background, not as something floating above it. */}
+            <View
+              style={[
+                StyleSheet.absoluteFillObject,
+                { backgroundColor: scheme === 'dark' ? 'rgba(52,49,57,0.72)' : 'rgba(255,255,255,0.82)' },
+              ]}
+            />
+          </View>
         ),
         tabBarStyle: {
           position: 'absolute',
-          left: 14,
-          right: 14,
+          // The bar stays full width: left/right are ignored here — the
+          // navigator owns those. The capsule is inset from within instead,
+          // via paddingHorizontal here and a matching margin on the
+          // background below, so the pill and its items line up.
           bottom: bottomGap,
+          paddingHorizontal: CAPSULE_MARGIN,
           height: FLOATING_TAB_BAR_HEIGHT,
           borderRadius: radius.pill,
           borderTopWidth: 0,
           backgroundColor: 'transparent',
-          // Clips the blur to the capsule; without it the material renders
-          // square behind the rounded outline.
-          overflow: 'hidden',
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: theme.border,
+          borderWidth: 0,
           paddingTop: 8,
           paddingBottom: 8,
           elevation: 0,
-          ...cardShadow(theme.bg, 0.45),
+          ...cardShadow('#000000', 0.55),
         },
         tabBarLabelStyle: {
           fontSize: 10,
