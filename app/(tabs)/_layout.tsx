@@ -3,6 +3,7 @@ import { BlurView } from 'expo-blur';
 import { Tabs } from 'expo-router';
 import type { ComponentProps } from 'react';
 import { StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useResolvedScheme, useThemeColors } from '../../src/theme/ThemeRoot';
 
 function TabIcon(props: { name: ComponentProps<typeof FontAwesome>['name']; color: string }) {
@@ -10,7 +11,11 @@ function TabIcon(props: { name: ComponentProps<typeof FontAwesome>['name']; colo
 }
 
 export default function TabLayout() {
+  const insets = useSafeAreaInsets();
   const theme = useThemeColors();
+  // Clearance for the home indicator without reserving the whole safe area.
+  // Floors at 10 so devices with no indicator still get a little breathing room.
+  const tabBarBottomInset = insets.bottom > 0 ? Math.max(insets.bottom - 12, 10) : 10;
   const scheme = useResolvedScheme();
   return (
     <Tabs
@@ -32,18 +37,20 @@ export default function TabLayout() {
           // means every screen's content naturally stops above it, so the
           // glass material is free without auditing every scroll inset.
           //
-          // No explicit height or paddingBottom: BottomTabBar already renders
-          // the standard 49pt bar plus the safe-area inset itself. Setting our
-          // own height/paddingBottom here didn't stack on top of that — it
-          // replaced those two properties — but the icon/label were still
-          // centered against the size the library had measured before the
-          // override landed, which is what left the oversized gap under the
-          // labels. Leaving both unset lets the library's own measurement and
-          // centering agree.
+          // BottomTabBar defaults to a 49pt bar plus the full 34pt home
+          // indicator inset as bottom padding, which leaves the labels
+          // floating ~39pt above the bottom edge — a dead band that reads as
+          // broken next to iOS 26's own compact tab bars. The indicator only
+          // needs clearance, not the whole inset: native bars sit their labels
+          // around 20pt up, so reserve that much and keep height in step with
+          // it (height = content + padding, the same formula the library uses)
+          // so the icons stay centred in what is actually rendered.
           backgroundColor: 'transparent',
           borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: theme.border,
           paddingTop: 6,
+          paddingBottom: tabBarBottomInset,
+          height: 49 + tabBarBottomInset,
         },
         tabBarLabelStyle: {
           fontSize: 10,
