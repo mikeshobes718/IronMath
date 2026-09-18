@@ -2,7 +2,7 @@
   "expo": {
     "name": "IronMath",
     "slug": "ironmath",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "ironmath",
@@ -17,7 +17,7 @@
       "supportsTablet": true,
       "deploymentTarget": "17.2",
       "bundleIdentifier": "app.ironmath.mobile",
-      "buildNumber": "18",
+      "buildNumber": "19",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSSupportsLiveActivities": true,

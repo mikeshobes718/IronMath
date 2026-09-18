@@ -1,0 +1,174 @@
+name: IronMath App Store
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "src/**"
+      - "assets/**"
+      - "plugins/**"
+      - "modules/**"
+      - "glasses/**"
+      - "app.json"
+      - "package.json"
+      - "package-lock.json"
+      - "ExportOptions-ci.plist"
+      - ".github/workflows/appstore.yml"
+
+jobs:
+  archive:
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        run: |
+          set -euo pipefail
+          echo "sw_vers:"
+          sw_vers
+          BUILD="$(sw_vers -buildVersion)"
+          case "$BUILD" in
+            26A*|27A*)
+              echo "Runner OS $BUILD is a beta seed. Apple will reject this binary."
+              exit 1
+              ;;
+          esac
+          ls /Applications | grep -i Xcode || true
+          SELECTED=""
+          for app in Xcode_26.6.app Xcode_26.5.app Xcode_26.4.1.app Xcode_26.4.app; do
+            if [ -d "/Applications/$app" ]; then
+              sudo xcode-select -s "/Applications/$app/Contents/Developer"
+              SELECTED="$app"
+              break
+            fi
+          done
+          if [ -z "$SELECTED" ]; then
+            echo "No Xcode 26 install found."
+            exit 1
+          fi
+          xcodebuild -version
+          XC_VER="$(xcodebuild -version | awk 'NR==1 {print $2}')"
+          case "$XC_VER" in
+            26.*) ;;
+            *)
+              echo "Selected Xcode $XC_VER instead of 26.x"
+              exit 1
+              ;;
+          esac
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install JS deps
+        run: npm ci
+
+      - name: Install App Store Connect API key
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          KEY="$HOME/.appstoreconnect/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8"
+          printf '%s\n' "$APPLE_API_KEY_P8" > "$KEY"
+          chmod 600 "$KEY"
+
+      - name: Prebuild iOS
+        run: |
+          set -euo pipefail
+          export CI=1
+          export EXPO_NO_TELEMETRY=1
+          npx expo prebuild --platform ios --non-interactive
+          xcodebuild -workspace ios/IronMath.xcworkspace -list
+
+      - name: Install CocoaPods
+        run: |
+          set -euo pipefail
+          gem install cocoapods --no-document
+          cd ios
+          pod install --repo-update
+
+      - name: Archive IronMath
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          export COPYFILE_DISABLE=1
+          export NODE_BINARY="$(command -v node)"
+          printf 'export NODE_BINARY=%s\n' "$NODE_BINARY" > ios/.xcode.env.local
+          KEY="$HOME/.appstoreconnect/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8"
+          xcodebuild \
+            -workspace ios/IronMath.xcworkspace \
+            -scheme IronMath \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/IronMath.xcarchive" \
+            -derivedDataPath "$RUNNER_TEMP/IronMathDerived" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$KEY" \
+            -authenticationKeyID "$APPLE_API_KEY_ID" \
+            -authenticationKeyIssuerID "$APPLE_API_ISSUER" \
+            DEVELOPMENT_TEAM=N7LRRN2YGY \
+            CODE_SIGN_STYLE=Automatic \
+            CURRENT_PROJECT_VERSION=19 \
+            MARKETING_VERSION=1.1.0 \
+            archive
+
+      - name: Reject beta OS stamp
+        run: |
+          set -euo pipefail
+          INFO="$RUNNER_TEMP/IronMath.xcarchive/Products/Applications/IronMath.app/Info.plist"
+          plutil -p "$INFO" | grep -E 'DTXcode|DTSDKName|BuildMachineOSBuild|CFBundleShortVersionString|CFBundleVersion'
+          STAMP="$(/usr/libexec/PlistBuddy -c 'Print :BuildMachineOSBuild' "$INFO")"
+          case "$STAMP" in
+            26A*|27A*)
+              echo "BuildMachineOSBuild $STAMP is a beta seed."
+              exit 1
+              ;;
+          esac
+          SDK="$(/usr/libexec/PlistBuddy -c 'Print :DTSDKName' "$INFO")"
+          case "$SDK" in
+            iphoneos26*) ;;
+            *)
+              echo "DTSDKName $SDK is not the iOS 26 SDK."
+              exit 1
+              ;;
+          esac
+
+      - name: Export IPA
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          KEY="$HOME/.appstoreconnect/private_keys/AuthKey_${APPLE_API_KEY_ID}.p8"
+          xcodebuild \
+            -exportArchive \
+            -archivePath "$RUNNER_TEMP/IronMath.xcarchive" \
+            -exportOptionsPlist ExportOptions-ci.plist \
+            -exportPath "$RUNNER_TEMP/IronMathExport" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$KEY" \
+            -authenticationKeyID "$APPLE_API_KEY_ID" \
+            -authenticationKeyIssuerID "$APPLE_API_ISSUER"
+
+      - name: Upload to App Store Connect
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          IPA="$(ls "$RUNNER_TEMP/IronMathExport"/*.ipa | head -n 1)"
+          echo "Uploading $IPA"
+          xcrun altool --upload-app --type ios \
+            --file "$IPA" \
+            --apiKey "$APPLE_API_KEY_ID" \
+            --apiIssuer "$APPLE_API_ISSUER"
