@@ -113,6 +113,10 @@ function withMetaWearables(config) {
       'external-accessory',
       'processing',
     ]);
+    plist.BGTaskSchedulerPermittedIdentifiers = mergeUnique(
+      plist.BGTaskSchedulerPermittedIdentifiers,
+      ['app.ironmath.mobile.refresh']
+    );
     plist.MWDAT = {
       AppLinkURLScheme: 'ironmath://',
       MetaAppID: '0',
