@@ -114,7 +114,7 @@ export default function GlanceScreen() {
   return (
     <Screen
       embedded
-      hint="Type the set on Load or Convert first. Open on glasses sends this snapshot to the Display. Pin it to the lock screen so you do not unlock every set."
+      hint="Type the set on Load or Convert first. Open on glasses saves this snapshot to the IronMath web page. Pin it to the lock screen so you do not unlock every set."
       onDismiss={keypad.hide}
       footer={<RestDurationKeypad keypad={keypad} />}
     >

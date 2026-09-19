@@ -63,11 +63,45 @@ function mergeUnique(list, extras) {
   return next;
 }
 
+function isStoreBuild() {
+  return process.env.IRONMATH_STORE_BUILD === '1';
+}
+
+function withoutAccessoryModes(list) {
+  const blocked = new Set([
+    'bluetooth-central',
+    'bluetooth-peripheral',
+    'external-accessory',
+    'processing',
+  ]);
+  return (Array.isArray(list) ? list : []).filter((item) => !blocked.has(item));
+}
+
+function stripStoreAccessoryKeys(plist) {
+  delete plist.UISupportedExternalAccessoryProtocols;
+  delete plist.NSBluetoothAlwaysUsageDescription;
+  delete plist.NSLocalNetworkUsageDescription;
+  delete plist.NSCameraUsageDescription;
+  delete plist.NSBonjourServices;
+  delete plist.MWDAT;
+  delete plist.BGTaskSchedulerPermittedIdentifiers;
+  plist.UIBackgroundModes = withoutAccessoryModes(plist.UIBackgroundModes);
+  if (Array.isArray(plist.LSApplicationQueriesSchemes)) {
+    plist.LSApplicationQueriesSchemes = plist.LSApplicationQueriesSchemes.filter(
+      (scheme) => scheme !== 'fb-viewapp'
+    );
+  }
+}
+
 function withMetaWearables(config) {
+  const store = isStoreBuild();
+
   config = withDangerousMod(config, [
     'ios',
     async (mod) => {
-      ensureDatFrameworks(mod.modRequest.projectRoot);
+      if (!store) {
+        ensureDatFrameworks(mod.modRequest.projectRoot);
+      }
       const propsPath = path.join(mod.modRequest.platformProjectRoot, 'Podfile.properties.json');
       if (fs.existsSync(propsPath)) {
         const props = JSON.parse(fs.readFileSync(propsPath, 'utf8'));
@@ -90,6 +124,12 @@ function withMetaWearables(config) {
 
   config = withInfoPlist(config, (mod) => {
     const plist = mod.modResults;
+    plist.NSSupportsLiveActivities = true;
+    plist.NSSupportsLiveActivitiesFrequentUpdates = true;
+    if (store) {
+      stripStoreAccessoryKeys(plist);
+      return mod;
+    }
     plist.NSBluetoothAlwaysUsageDescription =
       plist.NSBluetoothAlwaysUsageDescription ||
       'IronMath connects to Meta Ray-Ban Display glasses so Load and Convert stay on the display while your phone is in your pocket.';
@@ -99,15 +139,12 @@ function withMetaWearables(config) {
     plist.NSCameraUsageDescription =
       plist.NSCameraUsageDescription ||
       'Meta AI may ask for glasses permission before IronMath can use the display. IronMath does not record video.';
-    plist.NSSupportsLiveActivities = true;
-    plist.NSSupportsLiveActivitiesFrequentUpdates = true;
     plist.UISupportedExternalAccessoryProtocols = mergeUnique(plist.UISupportedExternalAccessoryProtocols, [
       'com.meta.ar.wearable',
     ]);
     plist.NSBonjourServices = mergeUnique(plist.NSBonjourServices, ['_bonjour._tcp']);
     plist.LSApplicationQueriesSchemes = mergeUnique(plist.LSApplicationQueriesSchemes, ['fb-viewapp']);
-    const modes = plist.UIBackgroundModes;
-    plist.UIBackgroundModes = mergeUnique(modes, [
+    plist.UIBackgroundModes = mergeUnique(plist.UIBackgroundModes, [
       'bluetooth-central',
       'bluetooth-peripheral',
       'external-accessory',

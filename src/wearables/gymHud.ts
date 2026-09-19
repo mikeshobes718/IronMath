@@ -99,6 +99,9 @@ export async function startGlassesSession(): Promise<string> {
   try {
     await configureWearables();
     const status = await getWearablesStatus();
+    if (!status.available) {
+      return 'Lock screen is on. This build does not connect to glasses hardware.';
+    }
     if (!String(status.registration).toLowerCase().includes('registered')) {
       await startRegistration();
     }
@@ -127,6 +130,10 @@ export async function startGlassesSession(): Promise<string> {
 export async function installDatOnGlasses(): Promise<string> {
   if (!wearablesAvailable()) {
     return 'Meta Wearables SDK is not in this binary.';
+  }
+  const status = await getWearablesStatus();
+  if (!status.available) {
+    return 'This build does not connect to glasses hardware.';
   }
   try {
     await configureWearables();

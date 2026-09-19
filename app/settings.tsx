@@ -229,7 +229,7 @@ export default function SettingsScreen() {
         </Pressable>
       </Group>
       <GroupFooter>
-        Open on glasses on Load saves the current set. Keep IronMath open on the glasses to see it. Meta AI is only for connecting. The phone cannot bring that page to the front.
+        Open on glasses on Load saves the current set to the IronMath web page. Keep that page open on the glasses to see it. This is a website, not a hardware accessory pairing.
       </GroupFooter>
       {glassesNote ? <Text style={styles.choiceDetail}>{glassesNote}</Text> : null}
 

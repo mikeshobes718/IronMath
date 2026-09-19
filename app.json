@@ -17,14 +17,11 @@
       "supportsTablet": true,
       "deploymentTarget": "17.2",
       "bundleIdentifier": "app.ironmath.mobile",
-      "buildNumber": "19",
+      "buildNumber": "20",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSSupportsLiveActivities": true,
         "NSSupportsLiveActivitiesFrequentUpdates": true,
-        "NSBluetoothAlwaysUsageDescription": "IronMath connects to Meta Ray-Ban Display glasses so Load and Convert stay on the display while your phone is in your pocket.",
-        "NSLocalNetworkUsageDescription": "IronMath can use Wi-Fi to reach Meta Display glasses when Bluetooth is not enough.",
-        "NSCameraUsageDescription": "Meta AI may ask for glasses permission before IronMath can use the display. IronMath does not record video.",
         "UIApplicationSceneManifest": {
           "UIApplicationSupportsMultipleScenes": false,
           "UISceneConfigurations": {

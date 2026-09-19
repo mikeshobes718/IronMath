@@ -81,11 +81,19 @@ jobs:
           chmod 600 "$KEY"
 
       - name: Prebuild iOS
+        env:
+          IRONMATH_STORE_BUILD: "1"
         run: |
           set -euo pipefail
           export CI=1
           export EXPO_NO_TELEMETRY=1
+          export IRONMATH_STORE_BUILD=1
           npx expo prebuild --platform ios --non-interactive
+          if grep -q 'com.meta.ar.wearable' ios/IronMath/Info.plist; then
+            echo "Store Info.plist still declares MFi protocol com.meta.ar.wearable"
+            exit 1
+          fi
+          echo "Store Info.plist has no MFi accessory protocol"
           xcodebuild -workspace ios/IronMath.xcworkspace -list
 
       - name: Install CocoaPods
@@ -118,7 +126,7 @@ jobs:
             -authenticationKeyIssuerID "$APPLE_API_ISSUER" \
             DEVELOPMENT_TEAM=N7LRRN2YGY \
             CODE_SIGN_STYLE=Automatic \
-            CURRENT_PROJECT_VERSION=19 \
+            CURRENT_PROJECT_VERSION=20 \
             MARKETING_VERSION=1.1.0 \
             archive
 
@@ -142,6 +150,11 @@ jobs:
               exit 1
               ;;
           esac
+          if /usr/libexec/PlistBuddy -c 'Print :UISupportedExternalAccessoryProtocols' "$INFO" 2>/dev/null | grep -q 'com.meta.ar.wearable'; then
+            echo "Archived app still declares MFi protocol com.meta.ar.wearable"
+            exit 1
+          fi
+          echo "Archived app has no MFi accessory protocol"
 
       - name: Export IPA
         env:
