@@ -57,6 +57,12 @@ async function syncRestLiveActivity() {
   if (!restEndTs) {
     return;
   }
+  // Expo Live Activity builds a timer from now..end. An end at or before now
+  // becomes a zero-length range and the lock screen shows "Active in 0 seconds".
+  if (restEndTs <= Date.now() + 1000) {
+    await finishRestLiveActivity();
+    return;
+  }
   const state = {
     title: 'Rest',
     subtitle: `${formatRestClock(restDurationSec)} rest. Tap to open IronMath.`,

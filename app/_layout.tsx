@@ -5,6 +5,7 @@ import { useEffect, useState, type ComponentType } from 'react';
 import { InteractionManager } from 'react-native';
 import 'react-native-reanimated';
 import { ToolsBackButton } from '../src/components/ToolsBackButton';
+import { startSync } from '../src/sync/account';
 import { ThemeRoot, useThemeColors } from '../src/theme/ThemeRoot';
 
 function openWarmupFromUrl(url: string) {
@@ -106,6 +107,7 @@ function RootStack() {
       <Stack.Screen name="dots" options={toolOptions('Meet score')} />
       <Stack.Screen name="attempts" options={toolOptions('Plan three attempts')} />
       <Stack.Screen name="settings" options={toolOptions('Settings')} />
+      <Stack.Screen name="account" options={{ title: 'Account', headerShown: true, headerBackTitle: 'Settings' }} />
     </Stack>
   );
 }
@@ -133,6 +135,7 @@ function DeferredGymHud() {
 export default function RootLayout() {
   useEffect(() => {
     void SplashScreen.hideAsync();
+    void startSync();
   }, []);
 
   useEffect(() => {

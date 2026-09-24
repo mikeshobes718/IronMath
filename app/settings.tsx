@@ -1,11 +1,16 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Keyboard, Pressable, Switch, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Keyboard, Pressable, Switch, Text, TextInput, View } from 'react-native';
 import { Group, GroupFooter, GroupHeader, GroupRow } from '../src/components/Group';
 import { NumpadDoneBar, numpadAccessoryProps } from '../src/components/NumpadDoneBar';
 import { Screen } from '../src/components/Screen';
-import { platesForUnit, WARMUP_SCHEMES } from '../src/engine';
+import { platesForUnit, safeDateLabel, safeTimeLabel, WARMUP_SCHEMES } from '../src/engine';
 import { tick } from '../src/haptics/feedback';
+import { deleteAccount, signOut, syncNow, useAccount } from '../src/sync/account';
+import { friendlyAuthError } from '../src/sync/berthClient';
+// Account header stays the short label "Account". Email sits in the row below
+// because GroupHeader uppercases its children.
 import { useActiveGym, useAppStore, useInventory } from '../src/store/useAppStore';
 import { useThemeColors } from '../src/theme/ThemeRoot';
 import { useThemedStyles } from '../src/theme/useThemedStyles';
@@ -66,6 +71,8 @@ export default function SettingsScreen() {
 
   return (
     <Screen embedded>
+      <AccountSection />
+
       <GroupHeader>Appearance</GroupHeader>
       <Group>
         <Choice
@@ -305,6 +312,172 @@ export default function SettingsScreen() {
   );
 }
 
+function syncedLabel(ts: number | null): string {
+  if (!ts) {
+    return 'Not synced yet';
+  }
+  const date = new Date(ts);
+  const sameDay = new Date().toDateString() === date.toDateString();
+  return `Last synced ${sameDay ? 'today' : safeDateLabel(ts, { month: 'short', day: 'numeric' })} at ${safeTimeLabel(ts)}`;
+}
+
+function AccountSection() {
+  const styles = useSettingsStyles();
+  const theme = useThemeColors();
+  const signedIn = useAccount((state) => state.signedIn);
+  const email = useAccount((state) => state.email);
+  const status = useAccount((state) => state.status);
+  const lastSyncedAt = useAccount((state) => state.lastSyncedAt);
+  const message = useAccount((state) => state.message);
+  const [busy, setBusy] = useState(false);
+
+  if (!signedIn) {
+    return (
+      <>
+        <GroupHeader>Account</GroupHeader>
+        <Group>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              Keyboard.dismiss();
+              void tick('light');
+              router.push('/account' as never);
+            }}
+          >
+            <GroupRow last>
+              <View style={styles.choice}>
+                <View style={styles.choiceCopy}>
+                  <Text style={styles.choiceLabel}>Sign in or create account</Text>
+                  <Text style={styles.choiceDetail}>Email and password, or a one-time email code.</Text>
+                </View>
+                <FontAwesome name="chevron-right" size={12} color={theme.dim} />
+              </View>
+            </GroupRow>
+          </Pressable>
+        </Group>
+        <GroupFooter>
+          {message ?? 'Optional. Back up your log, lifts, gym setup, and settings, and get them back on a new phone.'}
+        </GroupFooter>
+      </>
+    );
+  }
+
+  const syncing = status === 'syncing';
+  return (
+    <>
+      <GroupHeader>Account</GroupHeader>
+      <Group>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Account details"
+          onPress={() => {
+            Keyboard.dismiss();
+            void tick('light');
+            router.push('/account' as never);
+          }}
+        >
+          <GroupRow>
+            <View style={styles.choice}>
+              <View style={styles.choiceCopy}>
+                <Text style={styles.choiceLabel}>{email ?? 'Signed in'}</Text>
+                <Text style={styles.choiceDetail}>Name and password</Text>
+              </View>
+              <FontAwesome name="chevron-right" size={12} color={theme.dim} />
+            </View>
+          </GroupRow>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Sync now"
+          disabled={syncing || busy}
+          onPress={() => {
+            Keyboard.dismiss();
+            void tick('light');
+            void syncNow();
+          }}
+        >
+          <GroupRow>
+            <View style={styles.choice}>
+              <View style={styles.choiceCopy}>
+                <Text style={styles.choiceLabel}>Sync now</Text>
+                <Text style={[styles.choiceDetail, status === 'error' && styles.errorDetail]}>
+                  {syncing ? 'Syncing...' : status === 'error' && message ? message : syncedLabel(lastSyncedAt)}
+                </Text>
+              </View>
+              {syncing ? (
+                <ActivityIndicator color={theme.accent} />
+              ) : (
+                <FontAwesome name="refresh" size={14} color={theme.accent} />
+              )}
+            </View>
+          </GroupRow>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          disabled={busy}
+          onPress={() => {
+            Keyboard.dismiss();
+            void tick('light');
+            Alert.alert('Sign out?', 'Your log and settings stay on this phone. Sign in again any time to sync.', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Sign out',
+                onPress: () => {
+                  setBusy(true);
+                  void signOut(false).finally(() => setBusy(false));
+                },
+              },
+              {
+                text: 'Sign out everywhere',
+                style: 'destructive',
+                onPress: () => {
+                  setBusy(true);
+                  void signOut(true).finally(() => setBusy(false));
+                },
+              },
+            ]);
+          }}
+        >
+          <GroupRow>
+            <Text style={styles.choiceLabel}>Sign out</Text>
+          </GroupRow>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          disabled={busy}
+          onPress={() => {
+            Keyboard.dismiss();
+            void tick('warn');
+            Alert.alert(
+              'Delete your account?',
+              'This deletes your IronMath account and everything backed up to it. Data on this phone stays. This cannot be undone.',
+              [
+                { text: 'Keep account', style: 'cancel' },
+                {
+                  text: 'Delete account',
+                  style: 'destructive',
+                  onPress: () => {
+                    setBusy(true);
+                    void deleteAccount()
+                      .then(() => Alert.alert('Account deleted', 'Your backup is gone. Everything on this phone is still here.'))
+                      .catch((error: unknown) => Alert.alert('Could not delete', friendlyAuthError(error)))
+                      .finally(() => setBusy(false));
+                  },
+                },
+              ]
+            );
+          }}
+        >
+          <GroupRow last>
+            <Text style={[styles.choiceLabel, styles.dangerLabel]}>Delete account</Text>
+          </GroupRow>
+        </Pressable>
+      </Group>
+      <GroupFooter>Syncs your log, lifts, 1000 lb Club, gym plates, and settings. Changes upload on their own.</GroupFooter>
+    </>
+  );
+}
+
 function PairCountControl({ plateId }: { plateId: string }) {
   const styles = useSettingsStyles();
   const setPairCount = useAppStore((state) => state.setPairCount);
@@ -504,6 +677,12 @@ function useSettingsStyles() {
   },
   checkOn: {
     color: theme.accent,
+  },
+  errorDetail: {
+    color: theme.danger,
+  },
+  dangerLabel: {
+    color: theme.danger,
   },
   input: {
     color: theme.text,

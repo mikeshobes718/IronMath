@@ -16,7 +16,9 @@
     "ios": {
       "supportsTablet": true,
       "deploymentTarget": "17.2",
+      "appleTeamId": "N7LRRN2YGY",
       "bundleIdentifier": "app.ironmath.mobile",
+      "usesAppleSignIn": true,
       "buildNumber": "20",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -69,7 +71,9 @@
       "expo-web-browser",
       "expo-live-activity",
       "./plugins/withMetaWearables.js",
-      "./plugins/withPodMinIos.js"
+      "./plugins/withPodMinIos.js",
+      "expo-secure-store",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true

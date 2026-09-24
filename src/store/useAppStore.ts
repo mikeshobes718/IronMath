@@ -91,6 +91,8 @@ export interface AppState {
   restCustomRaw: string;
   autoRestOnLog: boolean;
   log: SetEntry[];
+  /** Deleted set ids and when, so a delete on this phone reaches the others. */
+  logTombstones: Record<string, number>;
   lastLoggedLift: LiftId;
   lastLoggedReps: string;
   reversePlates: PlateStackItem[];
@@ -180,6 +182,7 @@ export const useAppStore = create<AppState>()(
       restCustomRaw: formatRestClock(DEFAULT_CUSTOM_REST_SEC),
       autoRestOnLog: true,
       log: [],
+      logTombstones: {},
       lastLoggedLift: 'squat',
       lastLoggedReps: '5',
       reversePlates: [],
@@ -312,9 +315,20 @@ export const useAppStore = create<AppState>()(
       },
       finishRest: () => set({ restRunning: false, restEndTs: null, restRemainingSec: 0 }),
       setAutoRestOnLog: (autoRestOnLog) => set({ autoRestOnLog }),
-      logSet: (entry) => set({ log: appendEntry(get().log, entry), lastLoggedLift: entry.liftId }),
-      deleteLoggedSet: (id) => set({ log: removeEntry(get().log, id) }),
-      clearLog: () => set({ log: [] }),
+      logSet: (entry) => {
+        const { [entry.id]: _revived, ...logTombstones } = get().logTombstones;
+        set({ log: appendEntry(get().log, entry), logTombstones, lastLoggedLift: entry.liftId });
+      },
+      deleteLoggedSet: (id) =>
+        set({ log: removeEntry(get().log, id), logTombstones: { ...get().logTombstones, [id]: Date.now() } }),
+      clearLog: () => {
+        const now = Date.now();
+        const logTombstones = { ...get().logTombstones };
+        for (const entry of get().log) {
+          logTombstones[entry.id] = now;
+        }
+        set({ log: [], logTombstones });
+      },
       setLastLoggedLift: (lastLoggedLift) => set({ lastLoggedLift }),
       setLastLoggedReps: (lastLoggedReps) => set({ lastLoggedReps }),
       setReversePlates: (reversePlates) => set({ reversePlates }),
@@ -356,6 +370,7 @@ export const useAppStore = create<AppState>()(
         restCustomRaw: state.restCustomRaw,
         autoRestOnLog: state.autoRestOnLog,
         log: state.log,
+        logTombstones: state.logTombstones,
         lastLoggedLift: state.lastLoggedLift,
         lastLoggedReps: state.lastLoggedReps,
         reversePlates: state.reversePlates,
@@ -387,6 +402,7 @@ export const useAppStore = create<AppState>()(
           }
           state.autoRestOnLog = state.autoRestOnLog !== false;
           state.log = sanitizeLog(state.log);
+          state.logTombstones = sanitizeTombstones(state.logTombstones);
           if (!state.lastLoggedLift || !state.lifts[state.lastLoggedLift]) {
             state.lastLoggedLift = 'squat';
           }
@@ -437,6 +453,19 @@ export const useAppStore = create<AppState>()(
     }
   )
 );
+
+function sanitizeTombstones(value: unknown): Record<string, number> {
+  if (!value || typeof value !== 'object') {
+    return {};
+  }
+  const clean: Record<string, number> = {};
+  for (const [id, at] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof at === 'number' && Number.isFinite(at)) {
+      clean[id] = at;
+    }
+  }
+  return clean;
+}
 
 export function useActiveGym(): GymProfile {
   const gyms = useAppStore((state) => state.gyms);
